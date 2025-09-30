@@ -12,7 +12,12 @@
 
 ## Project timeline
 
-- TBA
+### 07/10/2025
+
+- Setup the project's bases.
+    - Backend: Layour our app's architecture.
+    - Backend: Connect our app to openai's API.
+    - Backend: Setup our API for future frontend/backend communication.
 
 ## Project Closing
 
