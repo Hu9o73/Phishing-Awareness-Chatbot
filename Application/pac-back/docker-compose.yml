@@ -1,0 +1,19 @@
+networks:
+  pac-network:
+    driver: bridge
+services:
+  agentic:
+    build:
+      context: "./src/agentic"
+    container_name: "pac-agentic"
+    ports:
+      - "8001:8001"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=gpt-4.1-mini-2025-04-14
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SK}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PK}
+      - PYTHONUNBUFFERED=${PYTHONUNBUFFERED}
+    command: ["fastapi", "run", "./app/Agentic.py", "--port", "8001"]
+    networks:
+      - pac-network

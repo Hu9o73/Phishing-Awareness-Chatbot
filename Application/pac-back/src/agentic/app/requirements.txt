@@ -1,0 +1,9 @@
+fastapi[standard]
+pydantic
+supabase
+dotenv
+bcrypt
+langchain
+langchain-openai
+langfuse==2.60.9
+requests
