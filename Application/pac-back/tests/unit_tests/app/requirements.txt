@@ -3,3 +3,4 @@ pydantic
 requests
 dotenv
 supabase
+bcrypt

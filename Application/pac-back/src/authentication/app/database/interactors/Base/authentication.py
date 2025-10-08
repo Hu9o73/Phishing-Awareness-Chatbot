@@ -1,4 +1,5 @@
 import os
+from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -11,7 +12,7 @@ from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
 from supabase import Client
 
 
-class AuthenticationInteractor:
+class AuthenticationInteractor(ABC):
     async def password_hasher(password: str) -> str:
         salt = bcrypt.gensalt()
         hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
@@ -19,35 +20,6 @@ class AuthenticationInteractor:
 
     async def verify_password(password: str, hash: str) -> bool:
         return bcrypt.checkpw(password.encode("utf-8"), hash.encode("utf-8"))
-
-    @staticmethod
-    async def create_user(user: UserCreationModel) -> UserModel:
-        supabase: Client = get_db()
-
-        # Check if email already exists
-        email_check = supabase.table("users").select("id").eq("email", user.email).limit(1).execute()
-        if email_check.data:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
-
-        # Hash the password
-        hashed_password = await AuthenticationInteractor.password_hasher(user.password)
-
-        # Insert new user
-        response = (
-            supabase.table("users")
-            .insert(
-                {
-                    "email": user.email,
-                    "password": hashed_password,
-                    "credits": user.credits,
-                    "first_name": user.first_name,
-                    "last_name": user.last_name,
-                }
-            )
-            .execute()
-        )
-
-        return UserModel(**response.data[0])
 
     @staticmethod
     async def login_user(email: str, password: str) -> str:
@@ -82,3 +54,8 @@ class AuthenticationInteractor:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid JWT token")
         except ExpiredSignatureError:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Expired JWT token")
+
+    @staticmethod
+    @abstractmethod
+    async def create_user(user: UserCreationModel) -> UserModel:
+        pass

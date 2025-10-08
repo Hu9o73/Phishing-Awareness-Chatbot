@@ -2,10 +2,10 @@ networks:
   pac-network:
     driver: bridge
 services:
-  authentication:
+  pac-authentication:
     build:
       context: "./src/authentication"
-    container_name: "authentication"
+    container_name: "pac-authentication"
     ports:
       - "8001:8001"
     env_file:

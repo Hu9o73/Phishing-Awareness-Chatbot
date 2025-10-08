@@ -2,9 +2,9 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
+from app.common.enum_models import RoleEnum
 from pydantic import BaseModel
 
-from app.common.enum_models import RoleEnum
 
 class HealthResponse(BaseModel):
     status: Literal["ok"]

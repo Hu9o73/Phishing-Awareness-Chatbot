@@ -1,11 +1,10 @@
 from datetime import datetime
-from enum import Enum
 from typing import Literal, Optional
 from uuid import UUID
 
+from app.models.enum_models import RoleEnum
 from pydantic import BaseModel, Field
 
-from app.models.enum_models import RoleEnum
 
 class HealthResponse(BaseModel):
     status: Literal["ok"]
@@ -43,6 +42,7 @@ class UserCreationModel(BaseModel):
     credits: Optional[int] = Field(default=0, description="Starting credits for the user.", example=20)
     first_name: str = Field(..., description="First name", example="John")
     last_name: str = Field(..., description="Last name", example="Doe")
+    role: Optional[RoleEnum] = Field(RoleEnum.MEMBER, description="Role of the user", example="MEMBER")
 
 
 class UserListModel(BaseModel):

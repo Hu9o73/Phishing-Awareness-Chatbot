@@ -4,7 +4,7 @@ set -e
 
 echo "Waiting for user-manager to be healthy..."
 
-until curl -s http://authentication:8001/health | grep -q "ok"; do
+until curl -s http://pac-authentication:8001/health | grep -q "ok"; do
   sleep 2
 done
 

@@ -1,12 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jwt import InvalidTokenError
-
 from app.database.interactors.authentication import AuthenticationInteractor
 from app.database.interactors.users import UsersInteractor
-from app.models.base_models import StatusResponse, UserListModel, UserModificationModel
 from app.Middleware import Middleware
-
+from app.models.base_models import StatusResponse, UserListModel, UserModificationModel
+from fastapi import APIRouter, Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 router = APIRouter()
 security = HTTPBearer()

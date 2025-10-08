@@ -6,7 +6,6 @@ from app.database.interactors.users import UsersInteractor
 from app.models.base_models import JWTModel
 from app.models.enum_models import RoleEnum
 
-
 security = HTTPBearer()
 
 
@@ -16,13 +15,21 @@ class Middleware:
         token = credentials.credentials
         token_decoded = await AuthenticationInteractor.decode_jwt(token)
         if not isinstance(token_decoded, JWTModel):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid JWT token")
 
     @staticmethod
-    async def is_admin(jwt_str: str) -> bool:
-        user_status = await Middleware._extract_status_from_jwt(jwt_str)
-        if user_status != "ADMIN":
+    async def is_admin(credentials: HTTPAuthorizationCredentials = Depends(security)):
+        token = credentials.credentials
+        user_status = await Middleware._extract_status_from_jwt(token)
+        if user_status != RoleEnum.ADMIN:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not admin.")
+
+    @staticmethod
+    async def is_org_admin(credentials: HTTPAuthorizationCredentials = Depends(security)):
+        token = credentials.credentials
+        user_status = await Middleware._extract_status_from_jwt(token)
+        if user_status != RoleEnum.ORG_ADMIN:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not admin of his organization.")
 
     @staticmethod
     async def _extract_status_from_jwt(jwt_str: str):

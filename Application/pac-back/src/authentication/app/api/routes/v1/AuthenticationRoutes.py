@@ -3,10 +3,9 @@ import os
 import requests
 from app.database.interactors.authentication import AuthenticationInteractor
 from app.Middleware import Middleware
-from app.models.base_models import UserCreationModel, UserModel, LoginResponse, JWTModel
-from fastapi import APIRouter, Depends, HTTPException, status
+from app.models.base_models import JWTModel, LoginResponse
+from fastapi import APIRouter, Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jwt import ExpiredSignatureError, InvalidTokenError
 
 router = APIRouter()
 security = HTTPBearer()
@@ -34,23 +33,6 @@ async def verify_recaptcha(token: str) -> bool:
     except requests.RequestException as e:
         print(f"reCAPTCHA verification error: {e}")
         return False
-
-
-@router.post("/signup", response_model=UserModel)
-async def signup(
-    email: str,
-    password: str,
-    recaptcha_token: str,
-    first_name: str,
-    last_name: str,
-):
-    # Verify reCAPTCHA first
-    if not await verify_recaptcha(recaptcha_token):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="reCAPTCHA verification failed. Please try again."
-        )
-    user = UserCreationModel(email=email, password=password, first_name=first_name, last_name=last_name)
-    return await AuthenticationInteractor.create_user(user)
 
 
 @router.post("/login", response_model=LoginResponse)

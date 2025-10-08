@@ -1,11 +1,10 @@
 from uuid import UUID
 
-from fastapi import HTTPException, status
-
 from app.database.client import get_db
 from app.database.interactors.authentication import AuthenticationInteractor
 from app.models.base_models import StatusResponse, UserListModel, UserModificationModel
 from app.models.enum_models import RoleEnum
+from fastapi import HTTPException, status
 from supabase import Client
 
 
@@ -13,8 +12,8 @@ class UsersInteractor:
     @staticmethod
     async def get_user_from_user_id(user_id: UUID) -> UserListModel:
         supabase: Client = get_db()
-        db_user = supabase.table("users").select("*").eq("id", user_id).limit(1).execute()
-        return UserListModel(**db_user)
+        response = supabase.table("users").select("*").eq("id", user_id).limit(1).execute()
+        return UserListModel(**response.data[0])
 
     @staticmethod
     async def get_role(user_id: UUID) -> RoleEnum:
