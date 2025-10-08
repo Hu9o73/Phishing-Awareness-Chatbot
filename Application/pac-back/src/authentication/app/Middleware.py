@@ -1,0 +1,32 @@
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from app.database.interactors.authentication import AuthenticationInteractor
+from app.database.interactors.users import UsersInteractor
+from app.models.base_models import JWTModel
+from app.models.enum_models import RoleEnum
+
+
+security = HTTPBearer()
+
+
+class Middleware:
+    @staticmethod
+    async def token_required(credentials: HTTPAuthorizationCredentials = Depends(security)):
+        token = credentials.credentials
+        token_decoded = await AuthenticationInteractor.decode_jwt(token)
+        if not isinstance(token_decoded, JWTModel):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+    @staticmethod
+    async def is_admin(jwt_str: str) -> bool:
+        user_status = await Middleware._extract_status_from_jwt(jwt_str)
+        if user_status != "ADMIN":
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not admin.")
+
+    @staticmethod
+    async def _extract_status_from_jwt(jwt_str: str):
+        decoded_jwt = await AuthenticationInteractor.decode_jwt(jwt_str)
+        if decoded_jwt.user_id:
+            return await UsersInteractor.get_role(decoded_jwt.user_id)
+        return None
