@@ -32,6 +32,7 @@ class UserModel(BaseModel):
     last_name: str
     role: RoleEnum
     credits: int
+    organization_id: UUID
     updated_at: datetime
     created_at: datetime
 
@@ -43,6 +44,7 @@ class UserCreationModel(BaseModel):
     first_name: str = Field(..., description="First name", example="John")
     last_name: str = Field(..., description="Last name", example="Doe")
     role: Optional[RoleEnum] = Field(RoleEnum.MEMBER, description="Role of the user", example="MEMBER")
+    organization_id: Optional[UUID] = Field(None, description="UUID of user's org")
 
 
 class UserListModel(BaseModel):
@@ -59,3 +61,16 @@ class UserModificationModel(BaseModel):
     email: Optional[str] = Field(default=None)
     first_name: Optional[str] = Field(default=None)
     last_name: Optional[str] = Field(default=None)
+
+
+class OrganizationCreationModel(BaseModel):
+    name: str = Field(..., description="Name of the organization", example="Woodpecker Creations")
+    description: Optional[str] = Field(default=None, description="Description of the organization", examples="My org")
+
+
+class OrganizationModel(BaseModel):
+    id: UUID
+    name: str
+    description: str | None
+    updated_at: datetime
+    created_at: datetime

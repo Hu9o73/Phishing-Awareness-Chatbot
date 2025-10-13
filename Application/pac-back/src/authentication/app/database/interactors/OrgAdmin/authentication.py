@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from supabase import Client
 
 
-class AdminAuthenticationInteractor(AuthenticationInteractor):
+class OrgAdminAuthenticationInteractor(AuthenticationInteractor):
     @staticmethod
     async def create_user(user: UserCreationModel) -> UserModel:
         supabase: Client = get_db()

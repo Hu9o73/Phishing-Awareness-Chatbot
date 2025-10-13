@@ -1,3 +1,4 @@
+from uuid import UUID
 
 from app.api.routes.v1.AuthenticationRoutes import verify_recaptcha
 from app.database.interactors.Admin.authentication import AdminAuthenticationInteractor
@@ -13,10 +14,11 @@ security = HTTPBearer()
 async def create_user(
     email: str,
     password: str,
-    recaptcha_token: str,
     first_name: str,
     last_name: str,
     role: RoleEnum,
+    recaptcha_token: str,
+    organization_id: UUID | None = None,
 ):
     # Verify reCAPTCHA first
     if not await verify_recaptcha(recaptcha_token):
@@ -24,5 +26,12 @@ async def create_user(
             status_code=status.HTTP_400_BAD_REQUEST, detail="reCAPTCHA verification failed. Please try again."
         )
     role = RoleEnum(role)
-    user = UserCreationModel(email=email, password=password, first_name=first_name, last_name=last_name, role=role)
+    user = UserCreationModel(
+        email=email,
+        password=password,
+        first_name=first_name,
+        last_name=last_name,
+        role=role,
+        organization_id=organization_id,
+    )
     return await AdminAuthenticationInteractor.create_user(user)

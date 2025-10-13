@@ -17,5 +17,14 @@ class UserModel(BaseModel):
     email: str
     role: RoleEnum
     credits: int
+    organization_id: UUID | None
+    updated_at: datetime
+    created_at: datetime
+
+
+class OrganizationModel(BaseModel):
+    id: UUID
+    name: str
+    description: str | None
     updated_at: datetime
     created_at: datetime
