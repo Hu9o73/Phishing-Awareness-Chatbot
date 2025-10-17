@@ -1,7 +1,7 @@
 import os
 
 import requests
-from app.database.interactors.authentication import AuthenticationInteractor
+from app.database.interactors.Base.authentication import AuthenticationInteractor
 from app.Middleware import Middleware
 from app.models.base_models import JWTModel, LoginResponse
 from fastapi import APIRouter, Depends

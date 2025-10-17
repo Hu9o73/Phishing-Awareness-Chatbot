@@ -2,6 +2,7 @@ from uuid import UUID
 
 from app.database.client import get_db
 from app.models.base_models import UserListModel
+from app.models.enum_models import RoleEnum
 from fastapi import HTTPException, status
 from supabase import Client
 
@@ -22,3 +23,11 @@ class UsersInteractor:
         if not response.data or len(response.data) == 0:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User with id {user_id} not found")
         return UserListModel(**response.data[0])
+
+    @staticmethod
+    async def get_role(user_id: UUID) -> RoleEnum:
+        supabase: Client = get_db()
+        response = supabase.table("users").select("role").eq("id", user_id).limit(1).execute()
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User with id {user_id} not found")
+        return RoleEnum(response.data[0]["role"])
