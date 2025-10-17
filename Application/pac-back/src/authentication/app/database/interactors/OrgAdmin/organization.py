@@ -25,7 +25,7 @@ class OrgAdminOrganizationInteractor:
         response = supabase.table("org_members").select("*").eq("organization_id", organization_id).execute()
         if not response.data or len(response.data) == 0:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail=f"Organization with id {organization_id} not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="No members in organization."
             )
         return [OrgMemberModel(**member) for member in response.data]
 
@@ -36,7 +36,7 @@ class OrgAdminOrganizationInteractor:
             supabase.table("org_members")
             .insert(
                 {
-                    "organization_id": member.organization_id,
+                    "organization_id": str(member.organization_id),
                     "email": member.email,
                     "first_name": member.first_name,
                     "last_name": member.last_name,

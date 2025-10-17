@@ -21,6 +21,14 @@ class UserModel(BaseModel):
     updated_at: datetime
     created_at: datetime
 
+class MemberModel(BaseModel):
+    id: UUID
+    organization_id: UUID
+    first_name: str
+    last_name: str
+    email: str
+    updated_at: datetime
+    created_at: datetime
 
 class OrganizationModel(BaseModel):
     id: UUID

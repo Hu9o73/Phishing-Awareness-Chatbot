@@ -59,3 +59,14 @@ class AuthenticationInteractor(ABC):
     @abstractmethod
     async def create_user(user: UserCreationModel) -> UserModel:
         pass
+
+    @staticmethod
+    async def get_user_org(jwt_str: str) -> str:
+        supabase: Client = get_db()
+        decoded_jwt = await AuthenticationInteractor.decode_jwt(jwt_str)
+        response = supabase.table("users").select("organization_id").eq("id", decoded_jwt.user_id).execute()
+        if not response.data or len(response.data) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail=f"Organization not found for user {decoded_jwt.user_id}"
+            )
+        return response.data[0]["organization_id"]

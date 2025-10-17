@@ -7,8 +7,9 @@ from supabase import Client
 
 class OrgAdminAuthenticationInteractor(AuthenticationInteractor):
     @staticmethod
-    async def create_user(user: UserCreationModel) -> UserModel:
+    async def create_user(token: str, user: UserCreationModel) -> UserModel:
         supabase: Client = get_db()
+        org_id = await AuthenticationInteractor.get_user_org(token)
 
         # Check if email already exists
         email_check = supabase.table("users").select("id").eq("email", user.email).limit(1).execute()
@@ -27,6 +28,7 @@ class OrgAdminAuthenticationInteractor(AuthenticationInteractor):
                     "password": hashed_password,
                     "first_name": user.first_name,
                     "last_name": user.last_name,
+                    "organization_id": org_id,
                 }
             )
             .execute()

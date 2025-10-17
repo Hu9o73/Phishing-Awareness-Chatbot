@@ -32,7 +32,7 @@ class UserModel(BaseModel):
     last_name: str
     role: RoleEnum
     credits: int
-    organization_id: UUID
+    organization_id: UUID | None = None
     updated_at: datetime
     created_at: datetime
 

@@ -40,6 +40,26 @@ class HackAuthenticationInteractor(AuthenticationInteractor):
         return UserModel(**response.data[0])
 
     @staticmethod
+    def create_an_org_admin(first_name: str, last_name: str, email: str, password: str, org_id: UUID):
+        supabase = get_db()
+        response = (
+            supabase.table("users")
+            .insert(
+                {
+                    "email": email,
+                    "password": HackAuthenticationInteractor._password_hasher(password),
+                    "role": RoleEnum.ORG_ADMIN,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "organization_id": str(org_id),
+                }
+            )
+            .execute()
+        )
+
+        return UserModel(**response.data[0])
+
+    @staticmethod
     def get_org_by_id(org_id: UUID) -> OrganizationModel | None:
         supabase = get_db()
         response = supabase.table("organizations").select("*").eq("id", org_id).limit(1).execute()
@@ -57,4 +77,6 @@ class HackAuthenticationInteractor(AuthenticationInteractor):
     @staticmethod
     def delete_an_org_by_id(org_id: UUID):
         supabase = get_db()
+        # Delete on cascade org members, if any
+        supabase.table("org_members").delete().eq("organization_id", org_id).execute()
         return supabase.table("organizations").delete().eq("id", org_id).execute()

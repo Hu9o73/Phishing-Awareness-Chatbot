@@ -1,11 +1,12 @@
 from uuid import UUID, uuid4
 
 import pytest
-from app.common.base_models import UserModel
+from app.common.base_models import MemberModel, UserModel
 from app.common.enum_models import RoleEnum
 from app.common.interactors.admin.auth_interactor import AdminAuthenticationInteractor
 from app.common.interactors.base.auth_interactor import AuthenticationInteractor
 from app.common.interactors.hack.auth_interactor import HackAuthenticationInteractor
+from app.common.interactors.orgadmin.auth_interactor import OrgAdminAuthenticationInteractor
 
 
 @pytest.mark.parametrize(
@@ -14,8 +15,8 @@ from app.common.interactors.hack.auth_interactor import HackAuthenticationIntera
         ("John", "Doe", uuid4(), "StrongPass123!", RoleEnum.ADMIN),
         ("Jane", "Doe", uuid4(), "StrongPass123!", RoleEnum.ORG_ADMIN),
         ("Hugo", "Bonnell", uuid4(), "StrongPass123!", RoleEnum.MEMBER),
-        ],
-    )
+    ],
+)
 def test_admin_authentication(first_name: str, last_name: str, uuid: UUID, password: str, role: RoleEnum):
     try:
         # First create an admin and get his token
@@ -110,6 +111,214 @@ def test_admin_authentication(first_name: str, last_name: str, uuid: UUID, passw
 
         HackAuthenticationInteractor.delete_using_email(admin_email)
         response = HackAuthenticationInteractor.login(admin_email, "admin")
+        assert response.status_code == 401
+
+        HackAuthenticationInteractor.delete_an_org_by_id(org_id)
+        response = HackAuthenticationInteractor.get_org_by_id(org_id)
+        assert response is None
+
+
+@pytest.mark.parametrize(
+    "first_name, last_name, uuid, password",
+    [
+        ("John", "ZeOrgAdmin", uuid4(), "StrongPass123!"),
+    ],
+)
+def test_orgadmin_authentication(first_name: str, last_name: str, uuid: UUID, password: str):
+    try:
+        # Create an organization for users
+        organization = HackAuthenticationInteractor.create_an_organization(name="AdminOrg2")
+        org_id = organization.id
+
+        # Create an org admin and get his token
+        email = f"{uuid}@example.com"
+        _ = HackAuthenticationInteractor.create_an_org_admin(first_name, last_name, email, password, org_id)
+        orgadmin_login_response = AuthenticationInteractor.login(email, password)
+
+        assert orgadmin_login_response.status_code == 200
+        response_dict: dict = orgadmin_login_response.json()
+        orgadmin_token = str(response_dict.get("access_token"))
+        assert len(orgadmin_token) > 0
+
+        # Create users
+        response = OrgAdminAuthenticationInteractor.create_user(
+            orgadmin_token, "Test", "USER", "test@user.com", "userpass"
+        )
+        assert response.status_code == 200
+
+        user = UserModel(**response.json())
+        assert user.first_name == "Test"
+        assert user.last_name == "USER"
+        assert user.email == "test@user.com"
+        assert user.role == RoleEnum.MEMBER
+        assert user.credits == 0
+        assert user.organization_id == org_id
+
+
+        response_409 = OrgAdminAuthenticationInteractor.create_user(
+            orgadmin_token, "Test", "USER", "test@user.com", "userpass"
+        )
+        assert response_409.status_code == 409
+        assert response_409.json().get("detail", "") == "Email already registered"
+
+        response_401 = OrgAdminAuthenticationInteractor.create_user(
+            "wrongtoken", "Test", "USER", "test@user.com", "userpass"
+        )
+        assert response_401.status_code == 401
+        assert response_401.json().get("detail", "") == "Invalid JWT token"
+
+        # Login
+        response = AuthenticationInteractor.login("test@user.com", "userpass")
+        assert response.status_code == 200
+        response_dict: dict = response.json()
+        user_token = str(response_dict.get("access_token"))
+        assert len(user_token) > 0
+
+
+        # Test accessing admin EP as a user
+        response_403 = OrgAdminAuthenticationInteractor.create_user(
+            user_token, first_name, last_name, f"{uuid4()}@example.com", password
+        )
+        assert response_403.status_code == 403
+        assert response_403.json().get("detail", "") == "User is not admin of his organization."
+
+    finally:
+        # Cleanup
+        HackAuthenticationInteractor.delete_using_email(email)
+        response = AuthenticationInteractor.login(email, password)
+        assert response.status_code == 401
+
+        HackAuthenticationInteractor.delete_using_email("test@user.com")
+        response = HackAuthenticationInteractor.login("test@user.com", "userpass")
+        assert response.status_code == 401
+
+        HackAuthenticationInteractor.delete_an_org_by_id(org_id)
+        response = HackAuthenticationInteractor.get_org_by_id(org_id)
+        assert response is None
+
+
+
+def test_orgadmin_member_management():
+    email = f"{uuid4()}@example.com"
+    admin_email = f"{uuid4()}@example.com"
+    user_email = f"{uuid4()}@example.com"
+    try:
+        # Create an organization for users
+        organization = HackAuthenticationInteractor.create_an_organization(name="AdminOrg2")
+        org_id = organization.id
+
+        # Create an org admin and get his token
+        password = "orgadminpass"
+        _ = HackAuthenticationInteractor.create_an_org_admin("John", "THESECONDORGADMIN", email, password, org_id)
+        orgadmin_login_response = AuthenticationInteractor.login(email, password)
+
+        assert orgadmin_login_response.status_code == 200
+        response_dict: dict = orgadmin_login_response.json()
+        orgadmin_token = str(response_dict.get("access_token"))
+        assert len(orgadmin_token) > 0
+
+        # Create an admin and get its token
+        _ = HackAuthenticationInteractor.create_an_admin("Test", "ADMIN", admin_email, "adminpass")
+        admin_login_response = AuthenticationInteractor.login(admin_email, "adminpass")
+        assert admin_login_response.status_code == 200
+        response_dict: dict = admin_login_response.json()
+        admin_token = str(response_dict.get("access_token"))
+        assert len(admin_token) > 0
+
+        # Create a user and get its token
+        _ = AdminAuthenticationInteractor.create_user(
+            admin_token, "Test", "USER", user_email, "userpass", RoleEnum.MEMBER, org_id
+        )
+        response = AuthenticationInteractor.login(user_email, "userpass")
+        assert response.status_code == 200
+        response_dict: dict = response.json()
+        user_token = str(response_dict.get("access_token"))
+        assert len(user_token) > 0
+
+
+        # Create members
+        members_ids = []
+        for _ in range(10):
+            response = OrgAdminAuthenticationInteractor.create_member(
+                orgadmin_token, "Test", "MEMBER", f"{str(uuid4())}@example.com", org_id
+            )
+            assert response.status_code == 200
+            member = MemberModel(**response.json())
+            assert member.first_name == "Test"
+            assert member.last_name == "MEMBER"
+            assert member.organization_id == org_id
+            members_ids.append(member.id)
+
+
+        # Try to get member by id
+        response = OrgAdminAuthenticationInteractor.get_member_by_id(orgadmin_token, members_ids[0])
+        assert response.status_code == 200
+        member = MemberModel(**response.json())
+        assert member.id == members_ids[0]
+
+        # Try to get member by id - Member not found
+        random_uuid = uuid4()
+        response_404 = OrgAdminAuthenticationInteractor.get_member_by_id(orgadmin_token, random_uuid)
+        assert response_404.status_code == 404
+        assert response_404.json().get("detail", "") == f"Member with id {random_uuid} not found"
+
+        # Try to get member by id - Invalid token
+        response_401 = OrgAdminAuthenticationInteractor.get_member_by_id("wrongtoken", members_ids[0])
+        assert response_401.status_code == 401
+        assert response_401.json().get("detail", "") == "Invalid JWT token"
+
+        # Try to get member by id - Forbidden
+        response_403 = OrgAdminAuthenticationInteractor.get_member_by_id(admin_token, members_ids[0])
+        assert response_403.status_code == 403
+        assert response_403.json().get("detail", "") == "User is not admin of his organization."
+
+        # Try to get member by id - Forbidden
+        response_403 = OrgAdminAuthenticationInteractor.get_member_by_id(user_token, members_ids[0])
+        assert response_403.status_code == 403
+        assert response_403.json().get("detail", "") == "User is not admin of his organization."
+
+
+        # Delete member
+        response = OrgAdminAuthenticationInteractor.delete_member_by_id(orgadmin_token, members_ids[1])
+        assert response.status_code == 200
+        assert response.json().get("message", "") == f"Member {members_ids[1]} deleted succesfully"
+
+        # Try to get member by id - Invalid token
+        response_401 = OrgAdminAuthenticationInteractor.delete_member_by_id("wrongtoken", members_ids[1])
+        assert response_401.status_code == 401
+        assert response_401.json().get("detail", "") == "Invalid JWT token"
+
+        # Try to get member by id - Forbidden
+        response_403 = OrgAdminAuthenticationInteractor.delete_member_by_id(admin_token, members_ids[1])
+        assert response_403.status_code == 403
+        assert response_403.json().get("detail", "") == "User is not admin of his organization."
+
+        # Try to get member by id - Forbidden
+        response_403 = OrgAdminAuthenticationInteractor.delete_member_by_id(user_token, members_ids[1])
+        assert response_403.status_code == 403
+        assert response_403.json().get("detail", "") == "User is not admin of his organization."
+
+
+        # List members
+        response = OrgAdminAuthenticationInteractor.get_members_in_org(orgadmin_token)
+        assert response.status_code == 200
+        members = [MemberModel(**member) for member in response.json()]
+        assert len(members) == 9
+        assert members[0].id == members_ids[0]
+        assert members[0].organization_id == org_id
+
+    finally:
+        # Cleanup
+        HackAuthenticationInteractor.delete_using_email(email)
+        response = AuthenticationInteractor.login(email, password)
+        assert response.status_code == 401
+
+        HackAuthenticationInteractor.delete_using_email(user_email)
+        response = HackAuthenticationInteractor.login(user_email, "userpass")
+        assert response.status_code == 401
+
+        HackAuthenticationInteractor.delete_using_email(admin_email)
+        response = HackAuthenticationInteractor.login(admin_email, "adminpass")
         assert response.status_code == 401
 
         HackAuthenticationInteractor.delete_an_org_by_id(org_id)
