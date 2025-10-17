@@ -74,3 +74,20 @@ class OrganizationModel(BaseModel):
     description: str | None
     updated_at: datetime
     created_at: datetime
+
+
+class OrgMemberCreationModel(BaseModel):
+    email: str = Field(..., description="Email address", example="john@example.com")
+    first_name: str = Field(..., description="First name", example="John")
+    last_name: str = Field(..., description="Last name", example="Doe")
+    organization_id: Optional[UUID] = Field(None, description="UUID of member's org")
+
+
+class OrgMemberModel(BaseModel):
+    id: UUID
+    organization_id: UUID
+    first_name: str
+    last_name: str
+    email: str
+    updated_at: datetime
+    created_at: datetime

@@ -1,6 +1,6 @@
 
 from app.api.routes.v1.AuthenticationRoutes import verify_recaptcha
-from app.database.interactors.Admin.authentication import AdminAuthenticationInteractor
+from app.database.interactors.OrgAdmin.authentication import OrgAdminAuthenticationInteractor
 from app.models.base_models import UserCreationModel, UserModel
 from fastapi import APIRouter, HTTPException, status
 from fastapi.security import HTTPBearer
@@ -22,4 +22,4 @@ async def create_user(
             status_code=status.HTTP_400_BAD_REQUEST, detail="reCAPTCHA verification failed. Please try again."
         )
     user = UserCreationModel(email=email, password=password, first_name=first_name, last_name=last_name)
-    return await AdminAuthenticationInteractor.create_user(user)
+    return await OrgAdminAuthenticationInteractor.create_user(user)
