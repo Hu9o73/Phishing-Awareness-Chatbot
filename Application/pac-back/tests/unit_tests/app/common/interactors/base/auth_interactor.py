@@ -20,3 +20,11 @@ class AuthenticationInteractor(ABC):
         else:
             headers = {}
         return requests.post(url=f"{settings.AUTHENTICATION_URL}/auth/verifyjwt", headers=headers)
+
+    @staticmethod
+    def get_current_user(token: str | None):
+        if token:
+            headers = {"Authorization": f"Bearer {token}"}
+        else:
+            headers = {}
+        return requests.get(url=f"{settings.AUTHENTICATION_URL}/auth/user", headers=headers)

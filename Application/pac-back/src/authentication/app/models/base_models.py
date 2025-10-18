@@ -47,7 +47,7 @@ class UserCreationModel(BaseModel):
     organization_id: Optional[UUID] = Field(None, description="UUID of user's org")
 
 
-class UserListModel(BaseModel):
+class PublicUserModel(BaseModel):
     id: UUID | None
     email: str | None
     first_name: str | None

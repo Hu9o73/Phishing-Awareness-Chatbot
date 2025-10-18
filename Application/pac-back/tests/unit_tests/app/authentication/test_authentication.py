@@ -1,12 +1,47 @@
 from uuid import UUID, uuid4
 
 import pytest
-from app.common.base_models import MemberModel, UserModel
+from app.common.base_models import MemberModel, PublicUserModel, UserModel
 from app.common.enum_models import RoleEnum
 from app.common.interactors.admin.auth_interactor import AdminAuthenticationInteractor
 from app.common.interactors.base.auth_interactor import AuthenticationInteractor
 from app.common.interactors.hack.auth_interactor import HackAuthenticationInteractor
 from app.common.interactors.orgadmin.auth_interactor import OrgAdminAuthenticationInteractor
+
+
+def test_get_current_user():
+    admin_email = f"{uuid4()}@example.com"
+    try:
+        _ = HackAuthenticationInteractor.create_an_admin("Admin", "Admin", admin_email, "admin")
+        admin_login_response = AdminAuthenticationInteractor.login(admin_email, "admin")
+
+        assert admin_login_response.status_code == 200
+        response_dict: dict = admin_login_response.json()
+        token = str(response_dict.get("access_token"))
+        assert len(token) > 0
+
+        response = AuthenticationInteractor.get_current_user(token)
+        assert response.status_code == 200
+        user = PublicUserModel(**response.json())
+        assert user.email == admin_email
+        assert user.first_name == "Admin"
+        assert user.last_name == "Admin"
+        user_id = user.id
+
+        HackAuthenticationInteractor.delete_using_email(admin_email)
+        response_404 = AuthenticationInteractor.get_current_user(token)
+        assert response_404.status_code == 404
+        assert response_404.json().get("detail", "") == f"User with id {user_id} not found"
+
+        for t, sc in zip(["wrong_token", None], [401, 403]):
+            response = AuthenticationInteractor.get_current_user(t)
+            assert response.status_code == sc
+
+    finally:
+        # Cleanup
+        HackAuthenticationInteractor.delete_using_email(admin_email)
+        response = AuthenticationInteractor.login(admin_email, "admin")
+        assert response.status_code == 401
 
 
 @pytest.mark.parametrize(

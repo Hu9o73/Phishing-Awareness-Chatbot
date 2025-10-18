@@ -21,6 +21,17 @@ class UserModel(BaseModel):
     updated_at: datetime
     created_at: datetime
 
+
+class PublicUserModel(BaseModel):
+    id: UUID | None
+    email: str | None
+    first_name: str | None
+    last_name: str | None
+    role: RoleEnum | None
+    credits: int | None
+    created_at: datetime | None
+
+
 class MemberModel(BaseModel):
     id: UUID
     organization_id: UUID
@@ -29,6 +40,7 @@ class MemberModel(BaseModel):
     email: str
     updated_at: datetime
     created_at: datetime
+
 
 class OrganizationModel(BaseModel):
     id: UUID
