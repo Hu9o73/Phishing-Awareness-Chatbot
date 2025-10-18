@@ -1,0 +1,32 @@
+networks:
+  pac-network:
+    driver: bridge
+services:
+  pac-authentication:
+    build:
+      context: "./pac-back/src/authentication"
+    container_name: "pac-authentication"
+    ports:
+      - "8001:8001"
+    env_file:
+      - ./pac-back/envs/.env
+    command: ["fastapi", "run", "./app/Authentication.py", "--port", "8001"]
+    networks:
+      - pac-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
+  website:
+    build:
+      context: "./pac-front"
+      args:
+        - VITE_AUTH_API_URL=/api/authentication
+        - VITE_AGENTIC_API_URL=/api/agentic
+        - VITE_RECAPTCHA_SITE_KEY=${VITE_RECAPTCHA_SITE_KEY}
+    container_name: "website"
+    ports:
+      - "8080:80"
+    networks:
+     - pac-network
