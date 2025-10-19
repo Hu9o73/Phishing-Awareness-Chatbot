@@ -2,7 +2,7 @@ from uuid import UUID
 
 from app.database.client import get_db
 from app.database.interactors.Base.authentication import AuthenticationInteractor
-from app.models.base_models import PublicUserModel, UserCreationModel, UserModel
+from app.models.base_models import PublicUserModel, UserCreationModel, UserModel, StatusResponse
 from app.models.enum_models import RoleEnum
 from fastapi import HTTPException, status
 from supabase import Client
@@ -57,3 +57,9 @@ class AdminAuthenticationInteractor(AuthenticationInteractor):
         supabase: Client = get_db()
         response = supabase.table("users").select("*").eq("role", RoleEnum.ORG_ADMIN.value).execute()
         return [PublicUserModel(**user) for user in response.data]
+
+    @staticmethod
+    async def delete_user(user_id: UUID):
+        supabase: Client = get_db()
+        supabase.table("users").delete().eq("id", user_id).execute()
+        return StatusResponse(status="ok", message=f"Successfully delete user with id {user_id}")
