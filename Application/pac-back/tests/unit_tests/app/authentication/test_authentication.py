@@ -1,7 +1,7 @@
 from uuid import UUID, uuid4
 
 import pytest
-from app.common.base_models import MemberModel, PublicUserModel, UserModel
+from app.common.base_models import MemberModel, OrganizationModel, PublicUserModel, UserModel
 from app.common.enum_models import RoleEnum
 from app.common.interactors.admin.auth_interactor import AdminAuthenticationInteractor
 from app.common.interactors.base.auth_interactor import AuthenticationInteractor
@@ -406,4 +406,112 @@ def test_orgadmin_member_management():
 
         HackAuthenticationInteractor.delete_an_org_by_id(org_id)
         response = HackAuthenticationInteractor.get_org_by_id(org_id)
+        assert response is None
+
+
+def test_organization_management():
+    orgadmin_email = f"{uuid4()}@example.com"
+    admin_email = f"{uuid4()}@example.com"
+    password = "pass"
+    try:
+        _ = HackAuthenticationInteractor.create_an_admin("Admin", "Admin", admin_email, password)
+
+        # Get admin token
+        response = AuthenticationInteractor.login(admin_email, password)
+        assert response.status_code == 200
+        admin_token = response.json().get("access_token", "")
+        assert len(admin_token) > 0
+
+        # Get current n of orgs (before adding the test ones)
+        response = AdminAuthenticationInteractor.list_all_orgs(admin_token)
+        assert response.status_code == 200
+
+        # Create an organization with admin
+        response = AdminAuthenticationInteractor.create_org(admin_token, "AdminOrgWooo")
+        assert response.status_code == 200
+        organization = OrganizationModel(**response.json())
+        org_id = organization.id
+        assert organization.name == "AdminOrgWooo"
+
+        # Create another one, to list
+        response = AdminAuthenticationInteractor.create_org(admin_token, "AdminOrg2")
+        assert response.status_code == 200
+        organization = OrganizationModel(**response.json())
+        org_id2 = organization.id
+        assert organization.name == "AdminOrg2"
+
+        # Try to list
+        response = AdminAuthenticationInteractor.list_all_orgs(admin_token)
+        assert response.status_code == 200
+
+        # Get current n of orgadmins (same as for n orgs)
+        response = AdminAuthenticationInteractor.list_orgadmins(admin_token)
+        assert response.status_code == 200
+
+        # Add an orgadmin to org2
+        _ = HackAuthenticationInteractor.create_an_org_admin("OrgAdmin", "OrgAdmin", orgadmin_email, password, org_id2)
+
+        # Try to list it
+        response = AdminAuthenticationInteractor.list_orgadmins(admin_token)
+        assert response.status_code == 200
+
+        # Try to access EP with wrong token
+        response = AuthenticationInteractor.login(orgadmin_email, password)
+        assert response.status_code == 200
+        orgadmin_token = response.json().get("access_token", "")
+        assert len(orgadmin_token) > 0
+
+        # Responses 403
+        response_403 = AdminAuthenticationInteractor.list_all_orgs(orgadmin_token)
+        assert response_403.status_code == 403
+        assert response_403.json().get("detail", "") == "User is not admin."
+
+        response_403 = AdminAuthenticationInteractor.delete_org(orgadmin_token, org_id)
+        assert response_403.status_code == 403
+        assert response_403.json().get("detail", "") == "User is not admin."
+
+        response_403 = AdminAuthenticationInteractor.list_orgadmins(orgadmin_token)
+        assert response_403.status_code == 403
+        assert response_403.json().get("detail", "") == "User is not admin."
+
+        # Responses 401
+        response_401 = AdminAuthenticationInteractor.list_all_orgs("wrong_token")
+        assert response_401.status_code == 401
+        assert response_401.json().get("detail", "") == "Invalid JWT token"
+
+        response_401 = AdminAuthenticationInteractor.delete_org("wrong_token", org_id)
+        assert response_401.status_code == 401
+        assert response_401.json().get("detail", "") == "Invalid JWT token"
+
+        response_401 = AdminAuthenticationInteractor.list_orgadmins("wrong_token")
+        assert response_401.status_code == 401
+        assert response_401.json().get("detail", "") == "Invalid JWT token"
+
+        # Try to delete
+        response = AdminAuthenticationInteractor.delete_org(admin_token, org_id2)
+        assert response.status_code == 200
+        assert response.json().get("status") == "ok"
+
+        # List again, to confirm
+        response = AdminAuthenticationInteractor.list_all_orgs(admin_token)
+        assert response.status_code == 200
+
+        response = AdminAuthenticationInteractor.list_orgadmins(admin_token)
+        assert response.status_code == 200
+
+    finally:
+        HackAuthenticationInteractor.delete_using_email(admin_email)
+        response = AuthenticationInteractor.login(admin_email, password)
+        assert response.status_code == 401
+
+        HackAuthenticationInteractor.delete_using_email(orgadmin_email)
+        response = AuthenticationInteractor.login(orgadmin_email, password)
+        assert response.status_code == 401
+
+        HackAuthenticationInteractor.delete_an_org_by_id(org_id)
+        response = HackAuthenticationInteractor.get_org_by_id(org_id)
+        assert response is None
+
+        HackAuthenticationInteractor.delete_an_org_by_id(org_id2)
+        response = HackAuthenticationInteractor.get_org_by_id(org_id2)
         assert response is None

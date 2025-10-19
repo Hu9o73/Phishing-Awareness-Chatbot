@@ -29,3 +29,25 @@ class AdminAuthenticationInteractor(AuthenticationInteractor):
         }
 
         return requests.post(url=f"{settings.AUTHENTICATION_URL}/admin/user", params=payload, headers=headers)
+
+    @staticmethod
+    def list_orgadmins(token: str):
+        headers = {"Authorization": f"Bearer {token}"}
+        return requests.get(url=f"{settings.AUTHENTICATION_URL}/admin/user/orgadmins", headers=headers)
+
+    @staticmethod
+    def create_org(token: str, organization_name: str, organization_description: str | None = None):
+        headers = {"Authorization": f"Bearer {token}"}
+        payload = {"organization_name": organization_name, "organization_description": organization_description}
+        return requests.post(url=f"{settings.AUTHENTICATION_URL}/admin/organization", params=payload, headers=headers)
+
+    @staticmethod
+    def list_all_orgs(token: str):
+        headers = {"Authorization": f"Bearer {token}"}
+        return requests.get(url=f"{settings.AUTHENTICATION_URL}/admin/organizations", headers=headers)
+
+    @staticmethod
+    def delete_org(token: str, org_id: UUID):
+        headers = {"Authorization": f"Bearer {token}"}
+        payload = {"organization_id": org_id}
+        return requests.delete(url=f"{settings.AUTHENTICATION_URL}/admin/organization", params=payload, headers=headers)

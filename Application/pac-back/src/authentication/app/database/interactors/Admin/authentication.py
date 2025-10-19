@@ -2,7 +2,7 @@ from uuid import UUID
 
 from app.database.client import get_db
 from app.database.interactors.Base.authentication import AuthenticationInteractor
-from app.models.base_models import UserCreationModel, UserModel
+from app.models.base_models import PublicUserModel, UserCreationModel, UserModel
 from app.models.enum_models import RoleEnum
 from fastapi import HTTPException, status
 from supabase import Client
@@ -51,3 +51,9 @@ class AdminAuthenticationInteractor(AuthenticationInteractor):
         )
 
         return UserModel(**response.data[0])
+
+    @staticmethod
+    async def list_org_admins():
+        supabase: Client = get_db()
+        response = supabase.table("users").select("*").eq("role", RoleEnum.ORG_ADMIN.value).execute()
+        return [PublicUserModel(**user) for user in response.data]
