@@ -175,6 +175,12 @@ def test_orgadmin_authentication(first_name: str, last_name: str, uuid: UUID, pa
         orgadmin_token = str(response_dict.get("access_token"))
         assert len(orgadmin_token) > 0
 
+        # Try to list the users when no users
+        response = OrgAdminAuthenticationInteractor.list_users(orgadmin_token)
+        assert response.status_code == 200
+        users_listed = [PublicUserModel(**user) for user in response.json()]
+        assert len(users_listed) == 0
+
         # Create users
         response = OrgAdminAuthenticationInteractor.create_user(
             orgadmin_token, "Test", "USER", "test@user.com", "userpass"
@@ -189,6 +195,13 @@ def test_orgadmin_authentication(first_name: str, last_name: str, uuid: UUID, pa
         assert user.credits == 0
         assert user.organization_id == org_id
 
+        # Create a second user
+        response = OrgAdminAuthenticationInteractor.create_user(
+            orgadmin_token, "Test2", "USER2", "test2@user.com", "userpass"
+        )
+        assert response.status_code == 200
+        user = UserModel(**response.json())
+        user_id = user.id
 
         response_409 = OrgAdminAuthenticationInteractor.create_user(
             orgadmin_token, "Test", "USER", "test@user.com", "userpass"
@@ -201,6 +214,29 @@ def test_orgadmin_authentication(first_name: str, last_name: str, uuid: UUID, pa
         )
         assert response_401.status_code == 401
         assert response_401.json().get("detail", "") == "Invalid JWT token"
+
+        # Try to list the users
+        response = OrgAdminAuthenticationInteractor.list_users(orgadmin_token)
+        assert response.status_code == 200
+        users_listed = [PublicUserModel(**user) for user in response.json()]
+        assert len(users_listed) == 2
+
+        # Try to delete a user
+        response = OrgAdminAuthenticationInteractor.delete_user(orgadmin_token, user_id)
+        assert response.status_code == 200
+        assert response.json().get("message", "") == f"Delete user with id {user_id}"
+
+        # List again, with one user left
+        response = OrgAdminAuthenticationInteractor.list_users(orgadmin_token)
+        assert response.status_code == 200
+        users_listed = [PublicUserModel(**user) for user in response.json()]
+        assert len(users_listed) == 1
+
+        # Try to delete with wrong user_id
+        my_wrong_uuid = uuid4()
+        response_404 = OrgAdminAuthenticationInteractor.delete_user(orgadmin_token, my_wrong_uuid)
+        assert response_404.status_code == 404
+        assert response_404.json().get("detail", "") == f"User with id {my_wrong_uuid} not found."
 
         # Login
         response = AuthenticationInteractor.login("test@user.com", "userpass")
@@ -217,6 +253,14 @@ def test_orgadmin_authentication(first_name: str, last_name: str, uuid: UUID, pa
         assert response_403.status_code == 403
         assert response_403.json().get("detail", "") == "User is not admin of his organization."
 
+        response_403 = OrgAdminAuthenticationInteractor.list_users(user_token)
+        assert response_403.status_code == 403
+        assert response_403.json().get("detail", "") == "User is not admin of his organization."
+
+        response_403 = OrgAdminAuthenticationInteractor.delete_user(user_token, uuid4())
+        assert response_403.status_code == 403
+        assert response_403.json().get("detail", "") == "User is not admin of his organization."
+
     finally:
         # Cleanup
         HackAuthenticationInteractor.delete_using_email(email)
@@ -225,6 +269,10 @@ def test_orgadmin_authentication(first_name: str, last_name: str, uuid: UUID, pa
 
         HackAuthenticationInteractor.delete_using_email("test@user.com")
         response = HackAuthenticationInteractor.login("test@user.com", "userpass")
+        assert response.status_code == 401
+
+        HackAuthenticationInteractor.delete_using_email("test2@user.com")
+        response = HackAuthenticationInteractor.login("test2@user.com", "userpass")
         assert response.status_code == 401
 
         HackAuthenticationInteractor.delete_an_org_by_id(org_id)

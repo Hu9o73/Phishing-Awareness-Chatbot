@@ -1,7 +1,8 @@
+from uuid import UUID
 
 from app.api.routes.v1.AuthenticationRoutes import verify_recaptcha
 from app.database.interactors.OrgAdmin.authentication import OrgAdminAuthenticationInteractor
-from app.models.base_models import UserCreationModel, UserModel
+from app.models.base_models import PublicUserModel, StatusResponse, UserCreationModel, UserModel
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -25,3 +26,16 @@ async def create_user(
     user = UserCreationModel(email=email, password=password, first_name=first_name, last_name=last_name)
     token = credentials.credentials
     return await OrgAdminAuthenticationInteractor.create_user(token, user)
+
+
+@router.get("/users", response_model=list[PublicUserModel])
+async def list_users_in_org(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """List all non-admin users in orgadmin's organization."""
+    token = credentials.credentials
+    return await OrgAdminAuthenticationInteractor.list_users_org(token)
+
+
+@router.delete("/user", response_model=StatusResponse)
+async def delete_user_by_id(user_id: UUID, credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    return await OrgAdminAuthenticationInteractor.delete_user_by_id(token, user_id)
