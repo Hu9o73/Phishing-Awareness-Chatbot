@@ -15,3 +15,5 @@ export PYTHONPATH=$(pwd)
 
 pytest ./app/authentication/test_healthiness.py
 pytest ./app/authentication/test_authentication.py
+pytest ./app/authentication/base/test_base_authentication.py
+pytest ./app/authentication/admin/test_admin_authentication.py

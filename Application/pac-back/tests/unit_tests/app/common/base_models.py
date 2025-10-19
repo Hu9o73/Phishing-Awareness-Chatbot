@@ -48,3 +48,13 @@ class OrganizationModel(BaseModel):
     description: str | None
     updated_at: datetime
     created_at: datetime
+
+
+class TestEnv(BaseModel):
+    org: OrganizationModel
+    user: UserModel
+    orgadmin: UserModel
+    admin: UserModel
+    user_token: str
+    orgadmin_token: str
+    admin_token: str

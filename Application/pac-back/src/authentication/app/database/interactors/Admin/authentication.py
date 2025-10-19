@@ -2,7 +2,7 @@ from uuid import UUID
 
 from app.database.client import get_db
 from app.database.interactors.Base.authentication import AuthenticationInteractor
-from app.models.base_models import PublicUserModel, UserCreationModel, UserModel, StatusResponse
+from app.models.base_models import PublicUserModel, StatusResponse, UserCreationModel, UserModel
 from app.models.enum_models import RoleEnum
 from fastapi import HTTPException, status
 from supabase import Client

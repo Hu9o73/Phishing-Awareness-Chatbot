@@ -2,7 +2,7 @@ from uuid import UUID
 
 from app.api.routes.v1.AuthenticationRoutes import verify_recaptcha
 from app.database.interactors.Admin.authentication import AdminAuthenticationInteractor
-from app.models.base_models import PublicUserModel, UserCreationModel, UserModel, StatusResponse
+from app.models.base_models import PublicUserModel, StatusResponse, UserCreationModel, UserModel
 from app.models.enum_models import RoleEnum
 from fastapi import APIRouter, HTTPException, status
 from fastapi.security import HTTPBearer
