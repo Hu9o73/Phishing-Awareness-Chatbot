@@ -1,6 +1,6 @@
-fastapi[standard]
-pydantic
-supabase
-dotenv
-bcrypt
-requests
+fastapi[standard]==0.119.1
+pydantic==2.12.3
+supabase==2.22.0
+dotenv==0.9.9
+bcrypt==5.0.0
+requests==2.32.5
