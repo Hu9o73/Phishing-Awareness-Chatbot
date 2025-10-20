@@ -54,6 +54,7 @@ class PublicUserModel(BaseModel):
     last_name: str | None
     role: RoleEnum | None
     credits: int | None
+    organization_id: UUID | None
     created_at: datetime | None
 
 

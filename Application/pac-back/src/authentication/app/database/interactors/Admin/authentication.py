@@ -53,9 +53,15 @@ class AdminAuthenticationInteractor(AuthenticationInteractor):
         return UserModel(**response.data[0])
 
     @staticmethod
-    async def list_org_admins():
+    async def list_org_admins(organization_id: UUID):
         supabase: Client = get_db()
-        response = supabase.table("users").select("*").eq("role", RoleEnum.ORG_ADMIN.value).execute()
+        response = (
+            supabase.table("users")
+            .select("*")
+            .eq("role", RoleEnum.ORG_ADMIN.value)
+            .eq("organization_id", organization_id)
+            .execute()
+        )
         return [PublicUserModel(**user) for user in response.data]
 
     @staticmethod

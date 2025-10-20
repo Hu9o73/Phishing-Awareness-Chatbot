@@ -43,5 +43,5 @@ async def delete_user(user_id: UUID):
 
 
 @router.get("/user/orgadmins", response_model=list[PublicUserModel])
-async def list_orgadmins():
-    return await AdminAuthenticationInteractor.list_org_admins()
+async def list_orgadmins(organization_id: UUID):
+    return await AdminAuthenticationInteractor.list_org_admins(organization_id)
