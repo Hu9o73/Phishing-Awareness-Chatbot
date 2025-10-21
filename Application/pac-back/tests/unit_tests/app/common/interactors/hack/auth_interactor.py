@@ -1,7 +1,7 @@
 from uuid import UUID
 
 import bcrypt
-from app.common.base_models import OrganizationModel, UserModel
+from app.common.base_models import OrganizationModel, OrgMemberModel, UserModel
 from app.common.database.client import get_db
 from app.common.enum_models import RoleEnum
 from app.common.interactors.base.auth_interactor import AuthenticationInteractor
@@ -106,3 +106,24 @@ class HackAuthenticationInteractor(AuthenticationInteractor):
     def delete_a_user_by_id(user_id: UUID):
         supabase = get_db()
         return supabase.table("users").delete().eq("id", user_id).execute()
+
+    @staticmethod
+    def create_an_org_member(first_name: str, last_name: str, email: str, org_id: UUID):
+        supabase = get_db()
+        response = (
+            supabase
+            .table("org_members")
+            .insert({
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": email,
+                "organization_id": org_id,
+            })
+            .execute()
+        )
+        return OrgMemberModel(**response.data[0])
+
+    @staticmethod
+    def delete_a_member_by_id(member_id: UUID):
+        supabase = get_db()
+        return supabase.table("org_members").delete().eq("id", member_id).execute()

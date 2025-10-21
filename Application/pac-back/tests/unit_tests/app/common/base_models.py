@@ -55,6 +55,16 @@ class OrganizationModel(BaseModel):
     created_at: datetime
 
 
+class OrgMemberModel(BaseModel):
+    id: UUID
+    organization_id: UUID
+    first_name: str
+    last_name: str
+    email: str
+    updated_at: datetime
+    created_at: datetime
+
+
 class TestEnv(BaseModel):
     org: OrganizationModel
     user: UserModel
