@@ -44,7 +44,7 @@ class AdminAuthenticationInteractor(AuthenticationInteractor):
                     "role": user.role,
                     "first_name": user.first_name,
                     "last_name": user.last_name,
-                    "organization_id": str(user.organization_id),
+                    "organization_id": str(user.organization_id) if user.organization_id else None,
                 }
             )
             .execute()
@@ -55,6 +55,11 @@ class AdminAuthenticationInteractor(AuthenticationInteractor):
     @staticmethod
     async def list_org_admins(organization_id: UUID):
         supabase: Client = get_db()
+
+        org_check = supabase.table("organizations").select("id").eq("id", str(organization_id)).limit(1).execute()
+        if not org_check.data or len(org_check.data) == 0:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
+
         response = (
             supabase.table("users")
             .select("*")

@@ -1,7 +1,7 @@
 from uuid import UUID
-import pytest
 
-from app.common.base_models import PublicUserModel, JWTModel
+import pytest
+from app.common.base_models import JWTModel, PublicUserModel
 from app.common.interactors.base.auth_interactor import AuthenticationInteractor
 from app.common.utils import clean_test, init_test
 
