@@ -10,6 +10,11 @@ class HealthResponse(BaseModel):
     status: Literal["ok"]
 
 
+class JWTModel(BaseModel):
+    user_id: str
+    exp: datetime
+
+
 class UserModel(BaseModel):
     id: UUID
     first_name: str

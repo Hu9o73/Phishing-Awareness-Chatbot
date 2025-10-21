@@ -1,6 +1,7 @@
+from uuid import UUID
 import pytest
 
-from app.common.base_models import PublicUserModel
+from app.common.base_models import PublicUserModel, JWTModel
 from app.common.interactors.base.auth_interactor import AuthenticationInteractor
 from app.common.utils import clean_test, init_test
 
@@ -39,6 +40,41 @@ def test_login(email, password, expected_status):
         if expected_status == 200:
             fetched_token = response.json().get("access_token", "")
             assert fetched_token
+    finally:
+        clean_test(te)
+
+
+@pytest.mark.parametrize(
+    "token_attr,expected_status,expected_user_attr",
+    [
+        ("admin_token", 200, "admin"),
+        ("orgadmin_token", 200, "orgadmin"),
+        ("user_token", 200, "user"),
+        ("wrong_token", 401, None),
+        (None, 403, None),
+    ],
+    ids=[
+        "admin_ok",
+        "orgadmin_ok",
+        "user_ok",
+        "invalid_token",
+        "missing_token",
+    ],
+)
+def test_verify_jwt(token_attr, expected_status, expected_user_attr):
+    te = init_test()
+    try:
+        token = getattr(te, token_attr) if token_attr and hasattr(te, token_attr) else token_attr
+        expected_user = getattr(te, expected_user_attr) if expected_user_attr else None
+
+        response = AuthenticationInteractor.verifyjwt(token)
+
+        assert response.status_code == expected_status
+
+        if expected_status == 200:
+            fetched_decoded_jwt = JWTModel(**response.json())
+            assert UUID(fetched_decoded_jwt.user_id) == getattr(expected_user, "id")
+
     finally:
         clean_test(te)
 
