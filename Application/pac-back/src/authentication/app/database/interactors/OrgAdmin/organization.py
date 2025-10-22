@@ -49,5 +49,8 @@ class OrgAdminOrganizationInteractor:
     @staticmethod
     async def delete_member(member_id: UUID) -> StatusResponse:
         supabase: Client = get_db()
+        existence_check = supabase.table("org_members").select("*").eq("id", member_id).execute()
+        if not existence_check.data or len(existence_check.data) == 0:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Member with id {member_id} not found")
         supabase.table("org_members").delete().eq("id", member_id).execute()
         return StatusResponse(status="ok", message=f"Member {member_id} deleted succesfully")

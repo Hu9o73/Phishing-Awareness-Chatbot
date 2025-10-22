@@ -10,6 +10,11 @@ class HealthResponse(BaseModel):
     status: Literal["ok"]
 
 
+class JWTModel(BaseModel):
+    user_id: str
+    exp: datetime
+
+
 class UserModel(BaseModel):
     id: UUID
     first_name: str
@@ -46,6 +51,16 @@ class OrganizationModel(BaseModel):
     id: UUID
     name: str
     description: str | None
+    updated_at: datetime
+    created_at: datetime
+
+
+class OrgMemberModel(BaseModel):
+    id: UUID
+    organization_id: UUID
+    first_name: str
+    last_name: str
+    email: str
     updated_at: datetime
     created_at: datetime
 
