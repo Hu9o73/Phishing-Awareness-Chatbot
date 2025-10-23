@@ -2,6 +2,7 @@ from uuid import UUID
 
 from app.database.client import get_db
 from app.database.interactors.Base.authentication import AuthenticationInteractor
+from app.services.Base.authentication import AuthenticationService
 from app.database.interactors.Base.users import UsersInteractor
 from app.models.base_models import OrgMemberCreationModel, OrgMemberModel, StatusResponse
 from fastapi import HTTPException, status
@@ -19,7 +20,7 @@ class OrgAdminOrganizationInteractor:
 
     @staticmethod
     async def get_members_in_organization(user_token: str) -> list[OrgMemberModel]:
-        jwt_decoded = await AuthenticationInteractor.decode_jwt(user_token)
+        jwt_decoded = await AuthenticationService.decode_jwt(user_token)
         organization_id = await UsersInteractor.get_user_organization_from_id(jwt_decoded.user_id)
         supabase: Client = get_db()
         response = supabase.table("org_members").select("*").eq("organization_id", organization_id).execute()

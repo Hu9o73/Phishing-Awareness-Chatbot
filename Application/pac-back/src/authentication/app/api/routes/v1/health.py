@@ -1,4 +1,4 @@
-from app.database.interactors.Base.authentication import AuthenticationInteractor
+from app.services.Base.authentication import AuthenticationService
 from app.models.base_models import HealthResponse
 from fastapi import APIRouter
 
@@ -12,4 +12,4 @@ async def health_check() -> HealthResponse:
 
 @router.get("/hack/hash")
 async def hash_password_hack(password: str) -> str:
-    return await AuthenticationInteractor.password_hasher(password)
+    return await AuthenticationService.password_hasher(password)

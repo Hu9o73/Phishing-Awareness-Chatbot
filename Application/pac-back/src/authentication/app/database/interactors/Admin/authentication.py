@@ -2,6 +2,7 @@ from uuid import UUID
 
 from app.database.client import get_db
 from app.database.interactors.Base.authentication import AuthenticationInteractor
+from app.services.Base.authentication import AuthenticationService
 from app.models.base_models import PublicUserModel, StatusResponse, UserCreationModel, UserModel
 from app.models.enum_models import RoleEnum
 from fastapi import HTTPException, status
@@ -32,7 +33,7 @@ class AdminAuthenticationInteractor(AuthenticationInteractor):
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
 
         # Hash the password
-        hashed_password = await AuthenticationInteractor.password_hasher(user.password)
+        hashed_password = await AuthenticationService.password_hasher(user.password)
 
         # Insert new user
         response = (
