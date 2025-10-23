@@ -1,14 +1,9 @@
 from uuid import UUID
 
-from app.database.client import get_db
-from app.database.interactors.Base.authentication import AuthenticationInteractor
 from app.database.interactors.Base.users import UsersInteractor
-from app.services.Base.authentication import AuthenticationService
 from app.database.interactors.OrgAdmin.organization import OrgAdminOrganizationInteractor
-from app.database.interactors.Base.users import UsersInteractor
 from app.models.base_models import OrgMemberCreationModel, OrgMemberModel, StatusResponse
-from fastapi import HTTPException, status
-from supabase import Client
+from app.services.Base.authentication import AuthenticationService
 
 
 class OrgAdminOrganizationService:

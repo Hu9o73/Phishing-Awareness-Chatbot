@@ -1,11 +1,10 @@
 import os
 
 import requests
-from app.database.interactors.Base.authentication import AuthenticationInteractor
-from app.services.Base.authentication import AuthenticationService
 from app.database.interactors.Base.users import UsersInteractor
 from app.Middleware import Middleware
 from app.models.base_models import JWTModel, LoginResponse, PublicUserModel
+from app.services.Base.authentication import AuthenticationService
 from fastapi import APIRouter, Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 

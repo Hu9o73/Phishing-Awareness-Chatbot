@@ -1,10 +1,8 @@
 from uuid import UUID
 
-from app.database.client import get_db
 from app.database.interactors.Admin.organization import AdminOrganizationInteractor
 from app.models.base_models import OrganizationCreationModel, OrganizationModel, StatusResponse
 from fastapi import HTTPException, status
-from supabase import Client
 
 
 class AdminOrganizationService:
@@ -18,7 +16,7 @@ class AdminOrganizationService:
 
     @staticmethod
     async def delete_organization(org_id: UUID) -> StatusResponse:
-        existence_check = AdminOrganizationInteractor.list_organizations(org_id=org_id)
+        existence_check = await AdminOrganizationInteractor.list_organizations(org_id=org_id)
         if len(existence_check) == 0:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
 

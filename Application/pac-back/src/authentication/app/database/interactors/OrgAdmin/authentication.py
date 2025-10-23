@@ -2,10 +2,7 @@ from uuid import UUID
 
 from app.database.client import get_db
 from app.database.interactors.Base.authentication import AuthenticationInteractor
-from app.services.Base.authentication import AuthenticationService
 from app.models.base_models import PublicUserModel, StatusResponse, UserCreationModel, UserModel
-from app.models.enum_models import RoleEnum
-from fastapi import HTTPException, status
 from supabase import Client
 
 
@@ -13,7 +10,18 @@ class OrgAdminAuthenticationInteractor(AuthenticationInteractor):
     @staticmethod
     async def create_user(user: UserCreationModel) -> UserModel:
         supabase: Client = get_db()
-        response = supabase.table("users").insert({**user.model_dump()}).execute()
+        response = (
+            supabase.table("users").insert(
+                {
+                    "email": user.email,
+                    "password": user.hashed_password,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "role": user.role,
+                    "organization_id": str(user.organization_id),
+                }
+            ).execute()
+        )
         return UserModel(**response.data[0])
 
     @staticmethod

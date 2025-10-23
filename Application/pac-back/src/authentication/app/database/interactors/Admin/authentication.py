@@ -2,10 +2,8 @@ from uuid import UUID
 
 from app.database.client import get_db
 from app.database.interactors.Base.authentication import AuthenticationInteractor
-from app.services.Base.authentication import AuthenticationService
 from app.models.base_models import PublicUserModel, StatusResponse, UserCreationModel, UserModel
 from app.models.enum_models import RoleEnum
-from fastapi import HTTPException, status
 from supabase import Client
 
 
@@ -18,7 +16,7 @@ class AdminAuthenticationInteractor(AuthenticationInteractor):
             .insert(
                 {
                     "email": user.email,
-                    "password": user.password,
+                    "password": user.hashed_password,
                     "role": user.role,
                     "first_name": user.first_name,
                     "last_name": user.last_name,

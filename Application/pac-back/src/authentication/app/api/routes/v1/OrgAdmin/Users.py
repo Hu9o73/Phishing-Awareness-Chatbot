@@ -1,9 +1,8 @@
 from uuid import UUID
 
 from app.api.routes.v1.AuthenticationRoutes import verify_recaptcha
-from app.database.interactors.OrgAdmin.authentication import OrgAdminAuthenticationInteractor
+from app.models.base_models import PublicUserModel, StatusResponse, UserModel
 from app.services.OrgAdmin.authentication import OrgAdminAuthenticationService
-from app.models.base_models import PublicUserModel, StatusResponse, UserCreationModel, UserModel
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 

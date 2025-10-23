@@ -1,14 +1,11 @@
 from uuid import UUID
 
-from app.database.client import get_db
-from app.database.interactors.OrgAdmin.authentication import OrgAdminAuthenticationInteractor
-from app.database.interactors.Base.authentication import AuthenticationInteractor
 from app.database.interactors.Base.users import UsersInteractor
-from app.services.Base.authentication import AuthenticationService
+from app.database.interactors.OrgAdmin.authentication import OrgAdminAuthenticationInteractor
 from app.models.base_models import PublicUserModel, StatusResponse, UserCreationModel, UserModel
 from app.models.enum_models import RoleEnum
+from app.services.Base.authentication import AuthenticationService
 from fastapi import HTTPException, status
-from supabase import Client
 
 
 class OrgAdminAuthenticationService(AuthenticationService):
@@ -18,14 +15,14 @@ class OrgAdminAuthenticationService(AuthenticationService):
         orgadmin_user = await UsersInteractor.get_user_from_id(jwt_decoded.user_id)
 
         # Check if user exists
-        await UsersInteractor.check_if_user_exists()
+        await UsersInteractor.check_if_user_exists(email)
 
         # Hash the password
         hashed_password = await AuthenticationService.password_hasher(password)
 
         user_to_insert = UserCreationModel(
             email=email,
-            password=hashed_password,
+            hashed_password=hashed_password,
             first_name=first_name,
             last_name=last_name,
             role=RoleEnum.MEMBER,

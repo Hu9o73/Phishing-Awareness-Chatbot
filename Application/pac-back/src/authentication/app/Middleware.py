@@ -1,11 +1,10 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.database.interactors.Base.authentication import AuthenticationInteractor
-from app.services.Base.authentication import AuthenticationService
-from app.services.Base.users import UsersService
 from app.models.base_models import JWTModel
 from app.models.enum_models import RoleEnum
+from app.services.Base.authentication import AuthenticationService
+from app.services.Base.users import UsersService
 
 security = HTTPBearer()
 

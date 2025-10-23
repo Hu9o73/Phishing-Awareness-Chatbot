@@ -1,16 +1,14 @@
 import os
-from abc import ABC, abstractmethod
+from abc import ABC
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import dotenv
 import jwt
-from app.database.client import get_db
 from app.database.interactors.Base.authentication import AuthenticationInteractor
-from app.models.base_models import JWTModel, LoginResponse, UserCreationModel, UserModel
+from app.models.base_models import JWTModel, LoginResponse
 from fastapi import HTTPException, status
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError
-from supabase import Client
 
 
 class AuthenticationService(ABC):

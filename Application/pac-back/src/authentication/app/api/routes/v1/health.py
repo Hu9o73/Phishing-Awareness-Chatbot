@@ -1,5 +1,5 @@
-from app.services.Base.authentication import AuthenticationService
 from app.models.base_models import HealthResponse
+from app.services.Base.authentication import AuthenticationService
 from fastapi import APIRouter
 
 router = APIRouter(tags=["Health"])

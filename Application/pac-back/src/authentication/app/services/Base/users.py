@@ -1,11 +1,7 @@
 from uuid import UUID
 
-from app.database.client import get_db
 from app.database.interactors.Base.users import UsersInteractor
 from app.models.base_models import PublicUserModel
-from app.models.enum_models import RoleEnum
-from fastapi import HTTPException, status
-from supabase import Client
 
 
 class UsersService:

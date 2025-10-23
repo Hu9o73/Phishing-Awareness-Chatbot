@@ -2,7 +2,6 @@ from uuid import UUID
 
 from app.database.client import get_db
 from app.models.base_models import OrganizationCreationModel, OrganizationModel, StatusResponse
-from fastapi import HTTPException, status
 from supabase import Client
 
 
@@ -25,7 +24,7 @@ class AdminOrganizationInteractor:
         supabase: Client = get_db()
         response = supabase.table("organizations").select("*")
         if org_id:
-            response = response.eq("organization_id", org_id).limit(1)
+            response = response.eq("id", org_id).limit(1)
         response = response.execute()
         return [OrganizationModel(**organization) for organization in response.data]
 

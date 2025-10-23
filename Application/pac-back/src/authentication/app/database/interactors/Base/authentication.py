@@ -1,8 +1,7 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from uuid import UUID
 
 from app.database.client import get_db
-from app.models.base_models import UserCreationModel, UserModel
 from supabase import Client
 
 
@@ -21,8 +20,3 @@ class AuthenticationInteractor(ABC):
     async def get_user_id_from_email(email: str):
         supabase: Client = get_db()
         return supabase.table("users").select("id").eq("email", email).limit(1).execute()
-
-    @staticmethod
-    @abstractmethod
-    async def create_user(user: UserCreationModel) -> UserModel:
-        pass

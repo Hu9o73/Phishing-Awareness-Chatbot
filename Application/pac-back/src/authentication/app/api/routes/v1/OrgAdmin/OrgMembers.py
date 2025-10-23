@@ -1,8 +1,7 @@
 from uuid import UUID
 
-from app.database.interactors.OrgAdmin.organization import OrgAdminOrganizationInteractor
+from app.models.base_models import OrgMemberModel, StatusResponse
 from app.services.OrgAdmin.organization import OrgAdminOrganizationService
-from app.models.base_models import OrgMemberCreationModel, OrgMemberModel, StatusResponse
 from fastapi import APIRouter, Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -20,7 +19,9 @@ async def get_members_in_organization(credentials: HTTPAuthorizationCredentials 
     return await OrgAdminOrganizationService.get_members_in_organization(token)
 
 @router.post("/member", response_model=OrgMemberModel)
-async def create_member(email: str, first_name: str, last_name: str, credentials: HTTPAuthorizationCredentials = Depends(security)):
+async def create_member(
+    email: str, first_name: str, last_name: str, credentials: HTTPAuthorizationCredentials = Depends(security)
+):
     token = credentials.credentials
     return await OrgAdminOrganizationService.create_member(email, first_name, last_name, token)
 
