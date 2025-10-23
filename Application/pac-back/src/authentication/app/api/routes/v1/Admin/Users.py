@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from app.api.routes.v1.AuthenticationRoutes import verify_recaptcha
-from app.database.interactors.Admin.authentication import AdminAuthenticationInteractor
+from app.services.Admin.authentication import AdminAuthenticationService
 from app.models.base_models import PublicUserModel, StatusResponse, UserCreationModel, UserModel
 from app.models.enum_models import RoleEnum
 from fastapi import APIRouter, HTTPException, status
@@ -34,14 +34,14 @@ async def create_user(
         role=role,
         organization_id=organization_id,
     )
-    return await AdminAuthenticationInteractor.create_user(user)
+    return await AdminAuthenticationService.create_user(user)
 
 
 @router.delete("/user", response_model=StatusResponse)
 async def delete_user(user_id: UUID):
-    return await AdminAuthenticationInteractor.delete_user(user_id)
+    return await AdminAuthenticationService.delete_user(user_id)
 
 
 @router.get("/user/orgadmins", response_model=list[PublicUserModel])
 async def list_orgadmins(organization_id: UUID):
-    return await AdminAuthenticationInteractor.list_org_admins(organization_id)
+    return await AdminAuthenticationService.list_org_admins(organization_id)
