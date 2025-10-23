@@ -21,9 +21,9 @@ class OrgAdminOrganizationInteractor:
     @staticmethod
     async def get_members_in_organization(user_token: str) -> list[OrgMemberModel]:
         jwt_decoded = await AuthenticationService.decode_jwt(user_token)
-        organization_id = await UsersInteractor.get_user_organization_from_id(jwt_decoded.user_id)
+        user = await UsersInteractor.get_user_from_id(jwt_decoded.user_id)
         supabase: Client = get_db()
-        response = supabase.table("org_members").select("*").eq("organization_id", organization_id).execute()
+        response = supabase.table("org_members").select("*").eq("organization_id", user.organization_id).execute()
         if not response.data or len(response.data) == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="No members in organization."
