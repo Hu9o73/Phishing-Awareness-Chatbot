@@ -11,7 +11,4 @@ from supabase import Client
 class UsersService:
     @staticmethod
     async def get_user_from_id(user_id: UUID) -> PublicUserModel:
-        user = await UsersInteractor.get_user_from_id(user_id=user_id)
-        if not user:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User with id {user_id} not found")
-        return user
+        return await UsersInteractor.get_user_from_id(user_id=user_id)
