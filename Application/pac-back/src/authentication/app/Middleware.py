@@ -4,7 +4,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.models.base_models import JWTModel
 from app.models.enum_models import RoleEnum
 from app.services.Base.authentication import AuthenticationService
-from app.services.Base.users import UsersService
+from app.database.interactors.Base.users import UsersInteractor
 
 security = HTTPBearer()
 
@@ -35,6 +35,6 @@ class Middleware:
     async def _extract_status_from_jwt(jwt_str: str):
         decoded_jwt = await AuthenticationService.decode_jwt(jwt_str)
         if decoded_jwt.user_id:
-            user = await UsersService.get_user_from_id(decoded_jwt.user_id)
+            user = await UsersInteractor.get_user_from_id(decoded_jwt.user_id)
             return user.role
         return None
