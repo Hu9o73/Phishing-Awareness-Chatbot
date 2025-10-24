@@ -39,7 +39,7 @@ class UserModel(BaseModel):
 
 class UserCreationModel(BaseModel):
     email: str = Field(..., description="Email address", example="john@example.com")
-    password: str = Field(..., description="Password", example="mypassword123")
+    hashed_password: str = Field(..., description="Password", example="mypassword123")
     credits: Optional[int] = Field(default=0, description="Starting credits for the user.", example=20)
     first_name: str = Field(..., description="First name", example="John")
     last_name: str = Field(..., description="Last name", example="Doe")
@@ -81,7 +81,7 @@ class OrgMemberCreationModel(BaseModel):
     email: str = Field(..., description="Email address", example="john@example.com")
     first_name: str = Field(..., description="First name", example="John")
     last_name: str = Field(..., description="Last name", example="Doe")
-    organization_id: Optional[UUID] = Field(None, description="UUID of member's org")
+    organization_id: UUID = Field(..., description="UUID of member's org")
 
 
 class OrgMemberModel(BaseModel):

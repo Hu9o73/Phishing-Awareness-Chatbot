@@ -34,9 +34,7 @@ def test_orgadmin_create_member(token_attr, expected_status):
         custom_uuid = uuid4()
         email = f"{custom_uuid}@member.com"
 
-        response = OrgAdminAuthenticationInteractor.create_member(
-            token, str(custom_uuid), str(custom_uuid), email, env.org.id
-        )
+        response = OrgAdminAuthenticationInteractor.create_member(token, str(custom_uuid), str(custom_uuid), email)
         assert response.status_code == expected_status
 
         if response.status_code == 200:

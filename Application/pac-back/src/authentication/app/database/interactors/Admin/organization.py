@@ -2,7 +2,6 @@ from uuid import UUID
 
 from app.database.client import get_db
 from app.models.base_models import OrganizationCreationModel, OrganizationModel, StatusResponse
-from fastapi import HTTPException, status
 from supabase import Client
 
 
@@ -21,20 +20,19 @@ class AdminOrganizationInteractor:
         return OrganizationModel(**response.data[0])
 
     @staticmethod
-    async def list_all_organizations() -> list[OrganizationModel]:
+    async def list_organizations(org_id: UUID | None = None) -> list[OrganizationModel]:
         supabase: Client = get_db()
-        response = supabase.table("organizations").select("*").execute()
+        response = supabase.table("organizations").select("*")
+        if org_id:
+            response = response.eq("id", org_id).limit(1)
+        response = response.execute()
         return [OrganizationModel(**organization) for organization in response.data]
 
     @staticmethod
     async def delete_organization(org_id: UUID) -> StatusResponse:
         supabase: Client = get_db()
 
-        existence_check = supabase.table("organizations").select("id").eq("id", str(org_id)).limit(1).execute()
-        if not existence_check.data or len(existence_check.data) == 0:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Organization not found")
-
-        # First clean members and users
+        # First clean members and users (cascade)
         supabase.table("org_members").delete().eq("organization_id", org_id).execute()
         supabase.table("users").delete().eq("organization_id", org_id).execute()
 

@@ -1,8 +1,8 @@
 from typing import Optional
 from uuid import UUID
 
-from app.database.interactors.Admin.organization import AdminOrganizationInteractor
 from app.models.base_models import OrganizationCreationModel, OrganizationModel, StatusResponse
+from app.services.Admin.organization import AdminOrganizationService
 from fastapi import APIRouter
 from fastapi.security import HTTPBearer
 
@@ -15,14 +15,14 @@ async def create_org(
     organization_description: Optional[str] = None,
 ):
     organization = OrganizationCreationModel(name=organization_name, description=organization_description)
-    return await AdminOrganizationInteractor.create_organization(organization)
+    return await AdminOrganizationService.create_organization(organization)
 
 
 @router.get("/organizations", response_model=list[OrganizationModel])
 async def list_organizations():
-    return await AdminOrganizationInteractor.list_all_organizations()
+    return await AdminOrganizationService.list_organizations()
 
 
 @router.delete("/organization", response_model=StatusResponse)
 async def delete_organization(organization_id: UUID):
-    return await AdminOrganizationInteractor.delete_organization(organization_id)
+    return await AdminOrganizationService.delete_organization(organization_id)
