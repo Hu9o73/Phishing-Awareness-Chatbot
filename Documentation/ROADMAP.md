@@ -21,12 +21,13 @@
 
 ## 28/10/2025
 
-- Deliver a first POC, which shall include:
+- First deliverables, including:
+    - The application's architecture layout.
+    - Justification of architectural choices.
     - A secure authentication service.
-    - Other required services to complete the POC.
-    - Only support emailing as attack vector.
-    - Be able to justify architectural choices.
-    - Document services and dev decisions.
+        - Note: The service should be of high quality, establishing standards for the upcoming.
+        - This means being well built and thought and include complete unitary tests.
+    - Documentation for services and dev decisions.
 
 ## Project Closing
 
