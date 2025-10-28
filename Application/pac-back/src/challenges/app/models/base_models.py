@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal
 from uuid import UUID
 
 from app.models.enum_models import RoleEnum
@@ -28,4 +28,14 @@ class PublicUserModel(BaseModel):
     role: RoleEnum | None = None
     credits: int | None = None
     organization_id: UUID | None = None
+    created_at: datetime | None = None
+
+
+class OrgMemberModel(BaseModel):
+    id: UUID
+    organization_id: UUID
+    first_name: str
+    last_name: str
+    email: str
+    updated_at: datetime | None = None
     created_at: datetime | None = None

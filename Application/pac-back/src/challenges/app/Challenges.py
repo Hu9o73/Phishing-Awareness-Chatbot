@@ -1,6 +1,7 @@
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes.v1.User.OrgMembers import router as user_org_members_router
 from app.api.routes.v1.health import router as health_router
 from app.Middleware import Middleware
 
@@ -16,3 +17,9 @@ app.add_middleware(
 )
 
 app.include_router(health_router)
+app.include_router(
+    user_org_members_router,
+    prefix="/user",
+    tags=["User - Organization Members"],
+    dependencies=[Depends(Middleware.token_required), Depends(Middleware.is_user)],
+)

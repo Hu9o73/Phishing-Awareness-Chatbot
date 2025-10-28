@@ -31,6 +31,13 @@ class Middleware:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not admin of his organization.")
 
     @staticmethod
+    async def is_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+        token = credentials.credentials
+        user_status = Middleware._extract_status_from_jwt(token)
+        if user_status != RoleEnum.MEMBER:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User does not have member role.")
+
+    @staticmethod
     def _extract_status_from_jwt(jwt_str: str) -> RoleEnum | None:
         decoded_jwt = AuthenticationService.verify_jwt(jwt_str)
         if decoded_jwt.user_id:
