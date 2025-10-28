@@ -13,6 +13,22 @@ services:
     command: ["fastapi", "run", "./app/Authentication.py", "--port", "8001"]
     networks:
       - pac-network
+  pac-challenges:
+    build:
+      context: "./src/challenges"
+    container_name: "pac-challenges"
+    ports:
+      - "8002:8002"
+    env_file:
+      - ./envs/.env
+    command: ["fastapi", "run", "./app/Challenges.py", "--port", "8002"]
+    networks:
+      - pac-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
   tester:
     build:
       context: "./tests/unit_tests"
