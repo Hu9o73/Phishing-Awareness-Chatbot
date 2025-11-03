@@ -47,9 +47,30 @@ class Scenario(BaseModel):
     name: str
     complexity: Complexity
     system_prompt: str
-    misc_info: dict
+    misc_info: dict | None = None
     updated_at: datetime | None = None
     created_at: datetime | None = None
+
+
+class ScenarioCreate(BaseModel):
+    name: str
+    complexity: Complexity
+    system_prompt: str
+    misc_info: dict | None = None
+
+
+class ScenarioUpdate(BaseModel):
+    name: str | None = None
+    complexity: Complexity | None = None
+    system_prompt: str | None = None
+    misc_info: dict | None = None
+
+
+class ScenarioExport(BaseModel):
+    name: str
+    complexity: Complexity
+    system_prompt: str
+    misc_info: dict | None = None
 
 
 class Email(BaseModel):
