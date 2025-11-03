@@ -6,6 +6,7 @@ from app.database.interactors.User.scenarios import UserScenariosInteractor
 from app.models.base_models import (
     Scenario,
     ScenarioCreate,
+    ScenarioListResponse,
     ScenarioExport,
     ScenarioUpdate,
     StatusResponse,
@@ -28,6 +29,12 @@ class UserScenarioService:
     async def create_scenario(token: str, scenario: ScenarioCreate) -> Scenario:
         organization_id = UserScenarioService._get_user_organization_id(token)
         return await UserScenariosInteractor.create_scenario(organization_id, scenario)
+
+    @staticmethod
+    async def list_scenarios(token: str) -> ScenarioListResponse:
+        organization_id = UserScenarioService._get_user_organization_id(token)
+        scenarios = await UserScenariosInteractor.list_scenarios(organization_id)
+        return ScenarioListResponse(items=scenarios)
 
     @staticmethod
     async def update_scenario(token: str, scenario_id: UUID, scenario_update: ScenarioUpdate) -> Scenario:

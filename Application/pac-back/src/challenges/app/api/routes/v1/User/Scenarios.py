@@ -3,11 +3,24 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.models.base_models import Scenario, ScenarioCreate, ScenarioExport, ScenarioUpdate, StatusResponse
+from app.models.base_models import (
+    Scenario,
+    ScenarioCreate,
+    ScenarioExport,
+    ScenarioListResponse,
+    ScenarioUpdate,
+    StatusResponse,
+)
 from app.services.User.scenarios import UserScenarioService
 
 router = APIRouter()
 security = HTTPBearer()
+
+
+@router.get("/scenarios", response_model=ScenarioListResponse)
+async def list_scenarios(credentials: HTTPAuthorizationCredentials = Depends(security)) -> ScenarioListResponse:
+    token = credentials.credentials
+    return await UserScenarioService.list_scenarios(token)
 
 
 @router.post("/scenarios", response_model=Scenario, status_code=status.HTTP_201_CREATED)

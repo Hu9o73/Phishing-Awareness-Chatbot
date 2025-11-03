@@ -37,6 +37,19 @@ class UserScenariosInteractor:
         return Scenario(**response.data[0])
 
     @staticmethod
+    async def list_scenarios(organization_id: UUID) -> list[Scenario]:
+        supabase: Client = get_db()
+        response = (
+            supabase.table("scenarios")
+            .select("*")
+            .eq("organization_id", str(organization_id))
+            .execute()
+        )
+        if not response.data:
+            return []
+        return [Scenario(**entry) for entry in response.data]
+
+    @staticmethod
     async def update_scenario(
         organization_id: UUID, scenario_id: UUID, scenario_update: ScenarioUpdate
     ) -> Scenario | None:

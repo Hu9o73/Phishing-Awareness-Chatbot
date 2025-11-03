@@ -73,6 +73,10 @@ class ScenarioExport(BaseModel):
     misc_info: dict | None = None
 
 
+class ScenarioListResponse(BaseModel):
+    items: list[Scenario]
+
+
 class Email(BaseModel):
     id: UUID
     scenario_id: UUID
