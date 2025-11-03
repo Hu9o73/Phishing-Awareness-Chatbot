@@ -13,3 +13,5 @@ echo "STARTING AUTHENTICATION TESTS"
 export PYTHONPATH=$(pwd)
 
 pytest ./app/authentication -v
+
+pytest ./app/challenges -v

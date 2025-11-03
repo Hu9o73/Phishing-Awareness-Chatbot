@@ -65,7 +65,6 @@ class UserScenariosInteractor:
             .update(update_payload)
             .eq("organization_id", str(organization_id))
             .eq("id", str(scenario_id))
-            .select("*")
             .execute()
         )
         if not response.data:

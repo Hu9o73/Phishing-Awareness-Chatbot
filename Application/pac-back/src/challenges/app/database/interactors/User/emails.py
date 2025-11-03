@@ -54,7 +54,6 @@ class UserEmailsInteractor:
             .update(update_payload)
             .eq("scenario_id", str(scenario_id))
             .eq("role", EmailRole.HOOK.value)
-            .select("*")
             .execute()
         )
         if not response.data:
