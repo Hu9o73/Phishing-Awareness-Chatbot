@@ -2,10 +2,9 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from supabase import Client
-
 from app.database.client import get_db
 from app.models.base_models import Scenario, ScenarioCreate, ScenarioUpdate
+from supabase import Client
 
 
 class UserScenariosInteractor:

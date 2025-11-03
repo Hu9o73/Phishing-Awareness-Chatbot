@@ -1,12 +1,10 @@
 import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from fastapi.responses import Response
-from pydantic import ValidationError
-
 from app.models.base_models import (
+    Email,
+    HookEmailCreate,
+    HookEmailUpdate,
     Scenario,
     ScenarioCreate,
     ScenarioExport,
@@ -15,6 +13,10 @@ from app.models.base_models import (
     StatusResponse,
 )
 from app.services.User.scenarios import UserScenarioService
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import Response
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import ValidationError
 
 router = APIRouter()
 security = HTTPBearer()
@@ -51,6 +53,44 @@ async def delete_scenario(
 ) -> StatusResponse:
     token = credentials.credentials
     return await UserScenarioService.delete_scenario(token, scenario_id)
+
+
+@router.post("/scenarios/hook-email", response_model=Email, status_code=status.HTTP_201_CREATED)
+async def create_hook_email(
+    email: HookEmailCreate,
+    scenario_id: UUID = Query(..., description="Identifier of the scenario to attach the hook email to."),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> Email:
+    token = credentials.credentials
+    return await UserScenarioService.create_hook_email(token, scenario_id, email)
+
+
+@router.get("/scenarios/hook-email", response_model=Email)
+async def get_hook_email(
+    scenario_id: UUID = Query(..., description="Identifier of the scenario to fetch the hook email from."),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> Email:
+    token = credentials.credentials
+    return await UserScenarioService.get_hook_email(token, scenario_id)
+
+
+@router.put("/scenarios/hook-email", response_model=Email)
+async def update_hook_email(
+    email_update: HookEmailUpdate,
+    scenario_id: UUID = Query(..., description="Identifier of the scenario whose hook email should be updated."),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> Email:
+    token = credentials.credentials
+    return await UserScenarioService.update_hook_email(token, scenario_id, email_update)
+
+
+@router.delete("/scenarios/hook-email", response_model=StatusResponse)
+async def delete_hook_email(
+    scenario_id: UUID = Query(..., description="Identifier of the scenario whose hook email should be deleted."),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> StatusResponse:
+    token = credentials.credentials
+    return await UserScenarioService.delete_hook_email(token, scenario_id)
 
 
 @router.get("/scenarios/export")

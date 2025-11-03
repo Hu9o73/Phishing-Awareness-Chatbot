@@ -1,9 +1,9 @@
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes.v1.health import router as health_router
 from app.api.routes.v1.User.OrgMembers import router as user_org_members_router
 from app.api.routes.v1.User.Scenarios import router as user_scenarios_router
-from app.api.routes.v1.health import router as health_router
 from app.Middleware import Middleware
 
 # Initialize FastAPI app with lifespan

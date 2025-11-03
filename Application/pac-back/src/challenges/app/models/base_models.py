@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from app.models.enum_models import RoleEnum, EmailRole, Complexity
+from app.models.enum_models import Complexity, EmailRole, RoleEnum
 from pydantic import BaseModel
 
 
@@ -90,3 +90,19 @@ class Email(BaseModel):
     variables: dict | None = None
     updated_at: datetime | None = None
     created_at: datetime | None = None
+
+
+class HookEmailCreate(BaseModel):
+    subject: str | None = None
+    sender_email: str
+    language: str
+    body: str | None = None
+    variables: dict | None = None
+
+
+class HookEmailUpdate(BaseModel):
+    subject: str | None = None
+    sender_email: str | None = None
+    language: str | None = None
+    body: str | None = None
+    variables: dict | None = None
