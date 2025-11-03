@@ -1,7 +1,10 @@
+import json
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.responses import Response
+from pydantic import ValidationError
 
 from app.models.base_models import (
     Scenario,
@@ -50,18 +53,54 @@ async def delete_scenario(
     return await UserScenarioService.delete_scenario(token, scenario_id)
 
 
-@router.get("/scenarios/export", response_model=ScenarioExport)
+@router.get("/scenarios/export")
 async def export_scenario(
     scenario_id: UUID = Query(..., description="Identifier of the scenario to export."),
     credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> ScenarioExport:
+) -> Response:
     token = credentials.credentials
-    return await UserScenarioService.export_scenario(token, scenario_id)
+    scenario_data = await UserScenarioService.export_scenario(token, scenario_id)
+    file_payload = scenario_data.model_dump()
+    file_bytes = json.dumps(file_payload, indent=2).encode("utf-8")
+    filename = f"scenario_{scenario_id}.json"
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return Response(content=file_bytes, media_type="application/json", headers=headers)
 
 
 @router.post("/scenarios/import", response_model=Scenario, status_code=status.HTTP_201_CREATED)
 async def import_scenario(
-    scenario_data: ScenarioExport, credentials: HTTPAuthorizationCredentials = Depends(security)
+    file: UploadFile = File(...),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> Scenario:
     token = credentials.credentials
+    if file.content_type not in (None, "", "application/json"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file must be a JSON document.",
+        )
+
+    try:
+        raw_bytes = await file.read()
+        payload = json.loads(raw_bytes.decode("utf-8"))
+    except UnicodeDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file is not valid UTF-8 encoded JSON.",
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded file contains invalid JSON.",
+        ) from exc
+    finally:
+        await file.close()
+
+    try:
+        scenario_data = ScenarioExport(**payload)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Uploaded JSON does not match the expected schema.",
+        ) from exc
+
     return await UserScenarioService.import_scenario(token, scenario_data)

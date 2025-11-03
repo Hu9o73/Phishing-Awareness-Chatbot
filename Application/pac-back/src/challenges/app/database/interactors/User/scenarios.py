@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -57,6 +58,8 @@ class UserScenariosInteractor:
         update_payload: dict[str, Any] = scenario_update.model_dump(exclude_unset=True, exclude_none=True)
         if not update_payload:
             return await UserScenariosInteractor.get_scenario(organization_id, scenario_id)
+
+        update_payload["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         response = (
             supabase.table("scenarios")
