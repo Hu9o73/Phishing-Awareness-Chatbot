@@ -2,8 +2,8 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from app.models.enum_models import RoleEnum
-from pydantic import BaseModel, Field
+from app.models.enum_models import RoleEnum, EmailRole, Complexity
+from pydantic import BaseModel
 
 
 class HealthResponse(BaseModel):
@@ -37,5 +37,31 @@ class OrgMemberModel(BaseModel):
     first_name: str
     last_name: str
     email: str
+    updated_at: datetime | None = None
+    created_at: datetime | None = None
+
+
+class Scenario(BaseModel):
+    id: UUID
+    organization_id: UUID
+    name: str
+    complexity: Complexity
+    system_prompt: str
+    misc_info: dict
+    updated_at: datetime | None = None
+    created_at: datetime | None = None
+
+
+class Email(BaseModel):
+    id: UUID
+    scenario_id: UUID
+    role: EmailRole
+    target_id: UUID | None = None
+    previous_email: UUID | None = None
+    subject: str | None = None
+    sender_email: str
+    language: str
+    body: str | None = None
+    variables: dict | None = None
     updated_at: datetime | None = None
     created_at: datetime | None = None
