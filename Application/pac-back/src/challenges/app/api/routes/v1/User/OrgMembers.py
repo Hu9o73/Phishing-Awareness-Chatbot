@@ -1,9 +1,7 @@
-from fastapi import APIRouter, Depends
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-
-from app.Middleware import Middleware
 from app.models.base_models import OrgMemberModel
 from app.services.User.organization import UserOrganizationService
+from fastapi import APIRouter, Depends
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 router = APIRouter()
 security = HTTPBearer()

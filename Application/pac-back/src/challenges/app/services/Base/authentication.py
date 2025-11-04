@@ -2,11 +2,10 @@ import os
 
 import dotenv
 import requests
-from fastapi import HTTPException, status
-from requests import RequestException
-
 from app.models.base_models import JWTModel, PublicUserModel
 from app.models.enum_models import RoleEnum
+from fastapi import HTTPException, status
+from requests import RequestException
 
 dotenv.load_dotenv()
 

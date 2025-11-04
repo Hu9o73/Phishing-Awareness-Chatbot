@@ -97,10 +97,26 @@ class HackAuthenticationInteractor(AuthenticationInteractor):
     @staticmethod
     def delete_an_org_by_id(org_id: UUID):
         supabase = get_db()
+        org_id_str = str(org_id)
+
+        scenarios_response = (
+            supabase.table("scenarios")
+            .select("id")
+            .eq("organization_id", org_id_str)
+            .execute()
+        )
+        scenario_entries = scenarios_response.data or []
+        scenario_ids = [entry["id"] for entry in scenario_entries if "id" in entry]
+
+        for scenario_id in scenario_ids:
+            supabase.table("emails").delete().eq("scenario_id", scenario_id).execute()
+
+        supabase.table("scenarios").delete().eq("organization_id", org_id_str).execute()
+
         # Delete on cascade org members, if any, and users part of it
-        supabase.table("users").delete().eq("organization_id", org_id).execute()
-        supabase.table("org_members").delete().eq("organization_id", org_id).execute()
-        return supabase.table("organizations").delete().eq("id", org_id).execute()
+        supabase.table("users").delete().eq("organization_id", org_id_str).execute()
+        supabase.table("org_members").delete().eq("organization_id", org_id_str).execute()
+        return supabase.table("organizations").delete().eq("id", org_id_str).execute()
 
     @staticmethod
     def delete_a_user_by_id(user_id: UUID):

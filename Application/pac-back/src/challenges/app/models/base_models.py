@@ -2,8 +2,8 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from app.models.enum_models import RoleEnum
-from pydantic import BaseModel, Field
+from app.models.enum_models import Complexity, EmailRole, RoleEnum
+from pydantic import BaseModel
 
 
 class HealthResponse(BaseModel):
@@ -39,3 +39,70 @@ class OrgMemberModel(BaseModel):
     email: str
     updated_at: datetime | None = None
     created_at: datetime | None = None
+
+
+class Scenario(BaseModel):
+    id: UUID
+    organization_id: UUID
+    name: str
+    complexity: Complexity
+    system_prompt: str
+    misc_info: dict | None = None
+    updated_at: datetime | None = None
+    created_at: datetime | None = None
+
+
+class ScenarioCreate(BaseModel):
+    name: str
+    complexity: Complexity
+    system_prompt: str
+    misc_info: dict | None = None
+
+
+class ScenarioUpdate(BaseModel):
+    name: str | None = None
+    complexity: Complexity | None = None
+    system_prompt: str | None = None
+    misc_info: dict | None = None
+
+
+class ScenarioExport(BaseModel):
+    name: str
+    complexity: Complexity
+    system_prompt: str
+    misc_info: dict | None = None
+
+
+class ScenarioListResponse(BaseModel):
+    items: list[Scenario]
+
+
+class Email(BaseModel):
+    id: UUID
+    scenario_id: UUID
+    role: EmailRole
+    target_id: UUID | None = None
+    previous_email: UUID | None = None
+    subject: str | None = None
+    sender_email: str
+    language: str
+    body: str | None = None
+    variables: dict | None = None
+    updated_at: datetime | None = None
+    created_at: datetime | None = None
+
+
+class HookEmailCreate(BaseModel):
+    subject: str | None = None
+    sender_email: str
+    language: str
+    body: str | None = None
+    variables: dict | None = None
+
+
+class HookEmailUpdate(BaseModel):
+    subject: str | None = None
+    sender_email: str | None = None
+    language: str | None = None
+    body: str | None = None
+    variables: dict | None = None
