@@ -1,12 +1,31 @@
 <template>
   <DashboardLayout :role="role">
     <div class="space-y-8">
+      <div class="bg-white rounded-2xl shadow p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 class="text-xl font-semibold text-phisward-primary">Organization Controls</h2>
+          <p class="text-sm text-gray-600">Toggle between the employee directory and user accounts.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="tab in tabOptions"
+            :key="tab.key"
+            @click="navigateToTab(tab.key)"
+            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border transition-all duration-200 font-semibold"
+            :class="activeTab === tab.key ? 'bg-phisward-secondary text-white border-phisward-secondary shadow-lg' : 'bg-white text-gray-600 border-gray-200 hover:border-phisward-secondary/60 hover:text-phisward-secondary'"
+          >
+            <i :class="tab.icon"></i>
+            {{ tab.label }}
+          </button>
+        </div>
+      </div>
+
       <section v-if="activeTab === 'org-members'" class="space-y-6">
         <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 class="text-3xl font-bold text-phisward-primary">Organization Members</h1>
+            <h1 class="text-3xl font-bold text-phisward-primary">Employee Directory</h1>
             <p class="text-gray-600">
-              Manage the directory of people attached to your organization.
+              Maintain the list of employees that belong to your organization.
             </p>
           </div>
           <button
@@ -14,7 +33,7 @@
             class="self-start lg:self-auto px-6 py-3 bg-gradient-to-r from-phisward-secondary to-phisward-third text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300"
           >
             <i class="fas fa-user-plus mr-2"></i>
-            Add Member
+            Add Employee
           </button>
         </header>
 
@@ -38,8 +57,8 @@
             <i class="fas fa-users text-2xl text-phisward-secondary"></i>
           </div>
           <div>
-            <h2 class="text-xl font-semibold text-phisward-primary">No members yet</h2>
-            <p class="text-gray-600">Start by adding the first member to your organization.</p>
+            <h2 class="text-xl font-semibold text-phisward-primary">No employees yet</h2>
+            <p class="text-gray-600">Start by adding your first employee to keep the directory up to date.</p>
           </div>
         </div>
 
@@ -79,9 +98,9 @@
       <section v-else-if="activeTab === 'org-users'" class="space-y-6">
         <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 class="text-3xl font-bold text-phisward-primary">Application Users</h1>
+            <h1 class="text-3xl font-bold text-phisward-primary">User Accounts</h1>
             <p class="text-gray-600">
-              Create and manage member accounts that can access the training platform.
+              Create and manage login accounts (role <span class="font-semibold">MEMBER</span>) for your employees.
             </p>
           </div>
           <button
@@ -114,7 +133,7 @@
           </div>
           <div>
             <h2 class="text-xl font-semibold text-phisward-primary">No users yet</h2>
-            <p class="text-gray-600">Create user accounts so your members can log in.</p>
+            <p class="text-gray-600">Create user accounts so your employees can log in to the platform.</p>
           </div>
         </div>
 
@@ -165,7 +184,7 @@
       <section v-else class="bg-white rounded-2xl shadow p-10 text-center">
         <h2 class="text-2xl font-semibold text-phisward-primary mb-3">Welcome back!</h2>
         <p class="text-gray-600">
-          Use the navigation to access your organization members or application users.
+          Use the navigation to access your employee directory or user accounts.
         </p>
       </section>
     </div>
@@ -216,6 +235,19 @@ const usersLoading = ref(false)
 const usersError = ref('')
 const deletingUserId = ref('')
 
+const tabOptions = [
+  {
+    key: 'org-members',
+    label: 'Employee Directory',
+    icon: 'fas fa-address-book'
+  },
+  {
+    key: 'org-users',
+    label: 'User Accounts',
+    icon: 'fas fa-user-friends'
+  }
+]
+
 const activeTab = computed(() => {
   const tab = route.query.tab
   if (typeof tab === 'string' && validTabs.includes(tab)) {
@@ -233,6 +265,16 @@ watch(
   },
   { immediate: true }
 )
+
+const navigateToTab = (tabKey) => {
+  if (!validTabs.includes(tabKey)) {
+    return
+  }
+  if (activeTab.value === tabKey) {
+    return
+  }
+  router.replace({ name: 'dashboard', query: { ...route.query, tab: tabKey } })
+}
 
 const extractErrorMessage = async (response, fallback) => {
   try {
@@ -268,13 +310,13 @@ const fetchOrgMembers = async () => {
     })
 
     if (!response.ok) {
-      const message = await extractErrorMessage(response, 'Failed to retrieve organization members.')
+      const message = await extractErrorMessage(response, 'Failed to retrieve organization employees.')
       throw new Error(message)
     }
 
     members.value = await response.json()
   } catch (error) {
-    membersError.value = error.message || 'Failed to retrieve organization members.'
+    membersError.value = error.message || 'Failed to retrieve organization employees.'
     members.value = []
   } finally {
     membersLoading.value = false
@@ -311,7 +353,7 @@ const fetchOrgUsers = async () => {
 }
 
 const deleteOrgMember = async (memberId) => {
-  if (!window.confirm('Remove this member from your organization?')) {
+  if (!window.confirm('Remove this employee from your organization directory?')) {
     return
   }
 
@@ -332,13 +374,13 @@ const deleteOrgMember = async (memberId) => {
     })
 
     if (!response.ok) {
-      const message = await extractErrorMessage(response, 'Failed to remove organization member.')
+      const message = await extractErrorMessage(response, 'Failed to remove employee.')
       throw new Error(message)
     }
 
     await fetchOrgMembers()
   } catch (error) {
-    membersError.value = error.message || 'Failed to remove organization member.'
+    membersError.value = error.message || 'Failed to remove employee.'
   } finally {
     deletingMemberId.value = ''
   }

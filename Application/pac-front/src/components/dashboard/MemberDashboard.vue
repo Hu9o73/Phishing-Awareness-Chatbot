@@ -1,6 +1,107 @@
 <template>
   <DashboardLayout :role="role">
     <div class="space-y-8">
+      <div class="bg-white rounded-2xl shadow p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 class="text-xl font-semibold text-phisward-primary">Member Workspace</h2>
+          <p class="text-sm text-gray-600">Jump between your organization directory, scenarios, hook emails, and tools.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="tab in tabOptions"
+            :key="tab.key"
+            @click="navigateToTab(tab.key)"
+            class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border transition-all duration-200 font-semibold"
+            :class="activeTab === tab.key ? 'bg-phisward-secondary text-white border-phisward-secondary shadow-lg' : 'bg-white text-gray-600 border-gray-200 hover:border-phisward-secondary/60 hover:text-phisward-secondary'"
+          >
+            <i :class="`${tab.icon} mr-2`"></i>
+            {{ tab.label }}
+          </button>
+        </div>
+      </div>
+
+      <section v-if="activeTab === 'org-directory'" class="space-y-6">
+        <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 class="text-3xl font-bold text-phisward-primary">Organization Directory</h1>
+            <p class="text-gray-600">
+              Review the employees that belong to your organization. This list is maintained by your org admin.
+            </p>
+          </div>
+          <button
+            @click="refreshOrgMembers"
+            class="self-start lg:self-auto px-6 py-3 border border-phisward-secondary text-phisward-secondary rounded-lg font-semibold hover:bg-phisward-secondary/10 transition-all duration-200 disabled:opacity-50"
+            :disabled="orgMembersLoading"
+          >
+            <span v-if="!orgMembersLoading">
+              <i class="fas fa-sync-alt mr-2"></i>
+              Refresh Directory
+            </span>
+            <span v-else>
+              <i class="fas fa-spinner fa-spin mr-2"></i>
+              Refreshing...
+            </span>
+          </button>
+        </header>
+
+        <div v-if="orgMembersError" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span>{{ orgMembersError }}</span>
+        </div>
+
+        <div
+          v-if="orgMembersLoading && orgMembers.length === 0"
+          class="flex items-center justify-center py-16 bg-white rounded-2xl shadow"
+        >
+          <i class="fas fa-spinner fa-spin text-3xl text-phisward-secondary"></i>
+        </div>
+
+        <div
+          v-else-if="orgMembers.length === 0"
+          class="flex flex-col items-center justify-center py-16 bg-white rounded-2xl shadow text-center space-y-4"
+        >
+          <div class="w-16 h-16 rounded-full bg-phisward-fourth/50 flex items-center justify-center">
+            <i class="fas fa-users text-2xl text-phisward-secondary"></i>
+          </div>
+          <div>
+            <h2 class="text-xl font-semibold text-phisward-primary">No employees listed yet</h2>
+            <p class="text-gray-600">
+              Ask your organization admin to populate the directory, then refresh this view.
+            </p>
+          </div>
+        </div>
+
+        <div v-else class="bg-white rounded-2xl shadow divide-y divide-gray-100">
+          <div
+            v-for="member in orgMembers"
+            :key="member.id"
+            class="px-6 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+          >
+            <div class="flex items-start gap-3">
+              <div class="w-12 h-12 rounded-full bg-phisward-fourth flex items-center justify-center text-phisward-secondary text-lg font-semibold">
+                {{ (member.first_name || '?')[0] }}{{ (member.last_name || '')[0] || '' }}
+              </div>
+              <div>
+                <h2 class="text-lg font-semibold text-phisward-primary">
+                  {{ member.first_name }} {{ member.last_name }}
+                </h2>
+                <p class="text-sm text-gray-600">{{ member.email }}</p>
+              </div>
+            </div>
+            <div class="text-xs text-gray-500 flex flex-wrap gap-4">
+              <span class="inline-flex items-center gap-1">
+                <i class="fas fa-id-card"></i>
+                {{ member.id }}
+              </span>
+              <span class="inline-flex items-center gap-1" v-if="member.created_at">
+                <i class="fas fa-clock"></i>
+                Added {{ formatDate(member.created_at) }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section v-if="activeTab === 'scenarios'" class="space-y-6">
         <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
@@ -63,6 +164,13 @@
                     <i class="fas fa-signal"></i>
                     {{ scenario.complexity }}
                   </span>
+                  <span
+                    v-if="scenario.id === selectedScenarioId"
+                    class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-phisward-secondary/10 text-phisward-secondary text-xs font-semibold uppercase tracking-wide"
+                  >
+                    <i class="fas fa-thumbtack"></i>
+                    In Focus
+                  </span>
                 </div>
                 <p class="text-sm text-gray-500">
                   Updated {{ formatDate(scenario.updated_at || scenario.created_at) }}
@@ -78,13 +186,6 @@
               </div>
 
               <div class="flex flex-col gap-2 w-full lg:w-auto">
-                <button
-                  @click="selectScenario(scenario.id)"
-                  class="w-full lg:w-48 px-4 py-2 border-2 border-phisward-secondary text-phisward-secondary font-semibold rounded-lg hover:bg-phisward-secondary/10 transition-all duration-200"
-                >
-                  <i class="fas fa-thumbtack mr-2"></i>
-                  {{ scenario.id === selectedScenarioId ? 'Selected' : 'Select Scenario' }}
-                </button>
                 <button
                   @click="openEditScenarioModal(scenario)"
                   class="w-full lg:w-48 px-4 py-2 bg-phisward-primary text-white font-semibold rounded-lg hover:bg-phisward-primary/90 transition-all duration-200"
@@ -405,7 +506,19 @@ defineProps({
 const route = useRoute()
 const router = useRouter()
 
-const validTabs = ['scenarios', 'hook-email', 'import-export']
+const validTabs = ['org-directory', 'scenarios', 'hook-email', 'import-export']
+
+const orgMembers = ref([])
+const orgMembersLoading = ref(false)
+const orgMembersError = ref('')
+const orgMembersLoaded = ref(false)
+
+const tabOptions = [
+  { key: 'org-directory', label: 'Directory', icon: 'fas fa-users' },
+  { key: 'scenarios', label: 'Scenarios', icon: 'fas fa-tasks' },
+  { key: 'hook-email', label: 'Hook Emails', icon: 'fas fa-envelope-open-text' },
+  { key: 'import-export', label: 'Import/Export', icon: 'fas fa-file-import' }
+]
 
 const scenarios = ref([])
 const scenariosLoading = ref(false)
@@ -445,14 +558,14 @@ const activeTab = computed(() => {
   if (typeof tab === 'string' && validTabs.includes(tab)) {
     return tab
   }
-  return 'scenarios'
+  return 'org-directory'
 })
 
 watch(
   () => route.query.tab,
   (tab) => {
     if (typeof tab !== 'string' || !validTabs.includes(tab)) {
-      router.replace({ name: 'dashboard', query: { tab: 'scenarios' } })
+      router.replace({ name: 'dashboard', query: { tab: 'org-directory' } })
     }
   },
   { immediate: true }
@@ -474,6 +587,53 @@ const extractErrorMessage = async (response, fallback) => {
     // ignore parsing errors
   }
   return fallback
+}
+
+const fetchOrgMembers = async (force = false) => {
+  if (orgMembersLoading.value) {
+    return
+  }
+
+  if (!force && orgMembersLoaded.value) {
+    return
+  }
+
+  orgMembersLoading.value = true
+  orgMembersError.value = ''
+  const hadMembers = orgMembersLoaded.value && orgMembers.value.length > 0
+
+  try {
+    const token = localStorage.getItem('user_jwt_token')
+    if (!token) {
+      throw new Error('Authentication token is missing. Please log in again.')
+    }
+
+    const response = await fetch('/api/challenges/user/organization/members', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    if (!response.ok) {
+      const message = await extractErrorMessage(response, 'Failed to load organization directory.')
+      throw new Error(message)
+    }
+
+    orgMembers.value = await response.json()
+    orgMembersLoaded.value = true
+  } catch (error) {
+    orgMembersError.value = error.message || 'Failed to load organization directory.'
+    if (!hadMembers) {
+      orgMembers.value = []
+    }
+    orgMembersLoaded.value = false
+  } finally {
+    orgMembersLoading.value = false
+  }
+}
+
+const refreshOrgMembers = () => {
+  fetchOrgMembers(true)
 }
 
 const fetchScenarios = async () => {
@@ -856,18 +1016,37 @@ const exportScenario = async () => {
   }
 }
 
-watch(activeTab, (tab) => {
-  if (tab === 'import-export') {
-    exportError.value = ''
-    exportSuccess.value = ''
-    importError.value = ''
-    importSuccess.value = ''
-  }
-})
+watch(
+  activeTab,
+  (tab) => {
+    if (tab === 'org-directory') {
+      fetchOrgMembers()
+    }
+
+    if (tab === 'import-export') {
+      exportError.value = ''
+      exportSuccess.value = ''
+      importError.value = ''
+      importSuccess.value = ''
+    }
+  },
+  { immediate: true }
+)
 
 onMounted(() => {
   fetchScenarios()
 })
+
+const navigateToTab = (tabKey) => {
+  if (!validTabs.includes(tabKey)) {
+    return
+  }
+  if (activeTab.value === tabKey) {
+    return
+  }
+  const nextQuery = { ...route.query, tab: tabKey }
+  router.replace({ name: 'dashboard', query: nextQuery })
+}
 
 const prettyJson = (value) => {
   try {

@@ -2,7 +2,7 @@
   <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" @click.self="$emit('close')">
     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all">
       <div class="flex items-center justify-between mb-6">
-        <h2 class="text-2xl font-bold text-phisward-primary">Add Organization Member</h2>
+        <h2 class="text-2xl font-bold text-phisward-primary">Add Organization Employee</h2>
         <button
           @click="$emit('close')"
           class="text-gray-400 hover:text-gray-600 transition-colors"
@@ -68,7 +68,7 @@
           >
             <span v-if="!loading">
               <i class="fas fa-user-plus mr-2"></i>
-              Add Member
+              Add Employee
             </span>
             <span v-else>
               <i class="fas fa-spinner fa-spin mr-2"></i>
@@ -127,7 +127,7 @@ const handleSubmit = async () => {
     })
 
     if (!response.ok) {
-      let message = 'Failed to create organization member.'
+      let message = 'Failed to add employee.'
       try {
         const data = await response.json()
         if (typeof data?.detail === 'string') {
@@ -146,7 +146,7 @@ const handleSubmit = async () => {
     resetForm()
     emit('created')
   } catch (err) {
-    error.value = err.message || 'Failed to create organization member.'
+    error.value = err.message || 'Failed to add employee.'
   } finally {
     loading.value = false
   }

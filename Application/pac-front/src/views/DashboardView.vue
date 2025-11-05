@@ -39,7 +39,7 @@ const ensureDefaultTab = (role) => {
   } else if (role === 'ORG_ADMIN') {
     router.replace({ name: 'dashboard', query: { tab: 'org-members' } })
   } else if (role === 'MEMBER') {
-    router.replace({ name: 'dashboard', query: { tab: 'scenarios' } })
+    router.replace({ name: 'dashboard', query: { tab: 'org-directory' } })
   }
 }
 

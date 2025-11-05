@@ -44,18 +44,23 @@ const navLinks = computed(() => {
     case 'ORG_ADMIN':
       return [
         {
-          label: 'Organization Members',
-          icon: 'fas fa-users',
+          label: 'Employee Directory',
+          icon: 'fas fa-address-book',
           to: { name: 'dashboard', query: { tab: 'org-members' } }
         },
         {
-          label: 'Application Users',
+          label: 'User Accounts',
           icon: 'fas fa-user-friends',
           to: { name: 'dashboard', query: { tab: 'org-users' } }
         }
       ]
     case 'MEMBER':
       return [
+        {
+          label: 'Organization Directory',
+          icon: 'fas fa-users',
+          to: { name: 'dashboard', query: { tab: 'org-directory' } }
+        },
         {
           label: 'Scenarios',
           icon: 'fas fa-tasks',
