@@ -15,14 +15,33 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AdminDashboard from '@/components/dashboard/admin/AdminDashboard.vue'
 import OrgAdminDashboard from '@/components/dashboard/OrgAdminDashboard.vue'
 import MemberDashboard from '@/components/dashboard/MemberDashboard.vue'
 
 const router = useRouter()
+const route = useRoute()
 const userRole = ref('')
 const loading = ref(true)
+
+const ensureDefaultTab = (role) => {
+  if (route.name !== 'dashboard') {
+    return
+  }
+
+  if (route.query.tab) {
+    return
+  }
+
+  if (role === 'ADMIN') {
+    router.replace({ name: 'dashboard', query: { tab: 'companies' } })
+  } else if (role === 'ORG_ADMIN') {
+    router.replace({ name: 'dashboard', query: { tab: 'org-members' } })
+  } else if (role === 'MEMBER') {
+    router.replace({ name: 'dashboard', query: { tab: 'scenarios' } })
+  }
+}
 
 onMounted(async () => {
   const token = localStorage.getItem('user_jwt_token')
@@ -47,6 +66,7 @@ onMounted(async () => {
 
     const userData = await response.json()
     userRole.value = userData.role
+    ensureDefaultTab(userData.role)
   } catch (err) {
     console.error('Error fetching user data:', err)
     router.push('/login')
