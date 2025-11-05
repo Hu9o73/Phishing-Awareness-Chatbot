@@ -18,6 +18,24 @@ services:
       interval: 10s
       timeout: 2s
       retries: 5
+  pac-challenges:
+    build:
+      context: "./pac-back/src/challenges"
+    container_name: "pac-challenges"
+    ports:
+      - "8002:8002"
+    env_file:
+      - ./pac-back/envs/.env
+    command: ["fastapi", "run", "./app/Challenges.py", "--port", "8002"]
+    networks:
+      - pac-network
+    depends_on:
+      - pac-authentication
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
   website:
     build:
       context: "./pac-front"
@@ -30,3 +48,8 @@ services:
       - "8080:80"
     networks:
      - pac-network
+    depends_on:
+      pac-authentication:
+        condition: service_healthy
+      pac-challenges:
+        condition: service_healthy
