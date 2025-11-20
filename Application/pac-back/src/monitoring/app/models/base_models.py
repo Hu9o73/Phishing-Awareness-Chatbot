@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from app.models.enum_models import ChannelEnum, ChallengeStatus, Complexity, EmailRole, RoleEnum
+from app.models.enum_models import ChallengeStatus, ChannelEnum, Complexity, EmailRole, RoleEnum
 from pydantic import BaseModel
 
 

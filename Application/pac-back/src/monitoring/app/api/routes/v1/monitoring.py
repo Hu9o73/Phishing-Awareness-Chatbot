@@ -2,7 +2,7 @@ from uuid import UUID
 
 from app.models.base_models import Challenge, ChallengeStatusResponse, ExchangesResponse
 from app.services.Monitoring.monitoring import MonitoringService
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 router = APIRouter()

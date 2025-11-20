@@ -1,9 +1,9 @@
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.Middleware import Middleware
 from app.api.routes.v1.health import router as health_router
 from app.api.routes.v1.monitoring import router as monitoring_router
+from app.Middleware import Middleware
 
 app = FastAPI(title="Monitoring API", version="1.0.0")
 

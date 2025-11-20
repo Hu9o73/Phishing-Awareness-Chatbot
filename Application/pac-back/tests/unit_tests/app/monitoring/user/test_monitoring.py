@@ -3,7 +3,6 @@ from __future__ import annotations
 from uuid import UUID, uuid4
 
 import pytest
-
 from app.common.base_models import OrgMemberModel
 from app.common.database.client import get_db
 from app.common.interactors.hack.auth_interactor import HackAuthenticationInteractor

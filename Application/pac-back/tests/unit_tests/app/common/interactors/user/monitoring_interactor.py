@@ -3,7 +3,6 @@ from __future__ import annotations
 from uuid import UUID
 
 import requests
-
 from app.common.settings import settings
 
 

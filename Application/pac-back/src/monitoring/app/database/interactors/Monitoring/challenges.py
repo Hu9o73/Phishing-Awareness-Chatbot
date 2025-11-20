@@ -4,7 +4,7 @@ from uuid import UUID
 
 from app.database.client import get_db
 from app.models.base_models import Challenge
-from app.models.enum_models import ChannelEnum, ChallengeStatus
+from app.models.enum_models import ChallengeStatus, ChannelEnum
 from supabase import Client
 
 
