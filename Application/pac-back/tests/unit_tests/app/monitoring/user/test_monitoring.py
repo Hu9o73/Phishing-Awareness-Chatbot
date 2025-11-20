@@ -31,12 +31,28 @@ def _scenario_payload() -> dict:
     }
 
 
-def _create_scenario(env, scenario_ids: set[str]) -> UUID:
+def _hook_email_payload() -> dict:
+    suffix = str(uuid4())
+    return {
+        "subject": f"Hook subject {suffix}",
+        "sender_email": f"hook-{suffix[:8]}@monitoring.test",
+        "language": "en",
+        "body": f"Hook body {suffix}",
+        "variables": {"seed": suffix},
+    }
+
+
+def _create_scenario(env, scenario_ids: set[str], email_ids: set[str]) -> UUID:
     payload = _scenario_payload()
     response = UserChallengesInteractor.create_scenario(env.user_token, payload)
     assert response.status_code == 201
     scenario_id = response.json()["id"]
     scenario_ids.add(scenario_id)
+
+    hook_response = UserChallengesInteractor.create_hook_email(env.user_token, scenario_id, _hook_email_payload())
+    assert hook_response.status_code == 201
+    hook_email = hook_response.json()
+    email_ids.add(hook_email["id"])
     return UUID(scenario_id)
 
 
@@ -64,7 +80,7 @@ def _cleanup_records(env, scenario_ids: set[str], member_ids: set[UUID], challen
 
 
 def _start_valid_challenge(env, scenario_ids, member_ids, challenge_ids, email_ids):
-    scenario_id = _create_scenario(env, scenario_ids)
+    scenario_id = _create_scenario(env, scenario_ids, email_ids)
     member = _create_member(env, member_ids)
 
     response = UserMonitoringInteractor.start_challenge(env.user_token, member.id, scenario_id)
@@ -75,6 +91,37 @@ def _start_valid_challenge(env, scenario_ids, member_ids, challenge_ids, email_i
         email_ids.add(data["last_exchange_id"])
     assert data["user_id"] == str(env.user.id)
     return data
+
+
+def _create_follow_up_email(scenario_id: str, previous_email_id: str, email_ids: set[str], role: str = "USER") -> str:
+    supabase = get_db()
+    payload = {
+        "scenario_id": scenario_id,
+        "role": role,
+        "target_id": None,
+        "previous_email": previous_email_id,
+        "subject": f"Follow up {uuid4()}",
+        "sender_email": f"{role.lower()}-{uuid4()}@monitoring.test",
+        "language": "en",
+        "body": "Test follow up",
+        "variables": {"source": "unit-test"},
+    }
+    response = supabase.table("emails").insert(payload).execute()
+    assert response.data
+    email_id = response.data[0]["id"]
+    email_ids.add(email_id)
+    return email_id
+
+
+def _update_challenge_last_exchange(challenge_id: str, exchange_id: str):
+    supabase = get_db()
+    response = (
+        supabase.table("challenges")
+        .update({"last_exchange_id": exchange_id})
+        .eq("id", challenge_id)
+        .execute()
+    )
+    assert response.data
 
 
 @pytest.fixture
@@ -110,7 +157,7 @@ def test_env():
 )
 def test_start_challenge_authorization(test_env, token_attr, expected_status):
     env, scenario_ids, member_ids, challenge_ids, email_ids = test_env
-    scenario_id = _create_scenario(env, scenario_ids)
+    scenario_id = _create_scenario(env, scenario_ids, email_ids)
     member = _create_member(env, member_ids)
 
     token = _resolve_token(env, token_attr)
@@ -151,3 +198,25 @@ def test_get_exchanges_returns_hook_first(test_env):
     assert exchanges[0]["role"] == "HOOK"
     if challenge_data.get("last_exchange_id"):
         assert exchanges[0]["id"] == challenge_data["last_exchange_id"]
+
+
+def test_get_exchanges_follows_previous_chain(test_env):
+    env, scenario_ids, member_ids, challenge_ids, email_ids = test_env
+    challenge_data = _start_valid_challenge(env, scenario_ids, member_ids, challenge_ids, email_ids)
+
+    hook_id = challenge_data["last_exchange_id"]
+    assert hook_id is not None
+
+    ai_email_id = _create_follow_up_email(challenge_data["scenario_id"], hook_id, email_ids, role="AI")
+    user_email_id = _create_follow_up_email(challenge_data["scenario_id"], ai_email_id, email_ids, role="USER")
+    _update_challenge_last_exchange(challenge_data["id"], user_email_id)
+
+    response = UserMonitoringInteractor.get_exchanges(env.user_token, challenge_data["id"])
+
+    assert response.status_code == 200
+    exchanges = response.json().get("exchanges", [])
+    assert len(exchanges) >= 3
+    assert [exchange["id"] for exchange in exchanges[:3]] == [hook_id, ai_email_id, user_email_id]
+    assert exchanges[0]["role"] == "HOOK"
+    assert exchanges[1]["role"] == "AI"
+    assert exchanges[2]["role"] == "USER"
