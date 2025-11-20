@@ -133,7 +133,7 @@ class HackAuthenticationInteractor(AuthenticationInteractor):
                 "first_name": first_name,
                 "last_name": last_name,
                 "email": email,
-                "organization_id": org_id,
+                "organization_id": str(org_id),
             })
             .execute()
         )
