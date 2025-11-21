@@ -17,9 +17,20 @@ class UserChallengesInteractor:
         return headers
 
     @staticmethod
-    def list_scenarios(token: str | None):
+    def list_org_members(token: str | None, member_id: str | None = None):
         headers = UserChallengesInteractor._build_headers(token)
-        return requests.get(f"{UserChallengesInteractor._BASE_URL}/scenarios", headers=headers)
+        params: dict[str, str] = {}
+        if member_id is not None:
+            params["id"] = member_id
+        return requests.get(f"{UserChallengesInteractor._BASE_URL}/organization/members", headers=headers, params=params)
+
+    @staticmethod
+    def list_scenarios(token: str | None, scenario_id: str | None = None):
+        headers = UserChallengesInteractor._build_headers(token)
+        params: dict[str, str] = {}
+        if scenario_id is not None:
+            params["id"] = scenario_id
+        return requests.get(f"{UserChallengesInteractor._BASE_URL}/scenarios", headers=headers, params=params)
 
     @staticmethod
     def create_scenario(token: str | None, payload: dict[str, Any]):

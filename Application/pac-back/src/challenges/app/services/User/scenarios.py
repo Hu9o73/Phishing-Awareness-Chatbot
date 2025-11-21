@@ -45,8 +45,12 @@ class UserScenarioService:
         return await UserScenariosInteractor.create_scenario(organization_id, scenario)
 
     @staticmethod
-    async def list_scenarios(token: str) -> ScenarioListResponse:
+    async def list_scenarios(token: str, scenario_id: UUID | None = None) -> ScenarioListResponse:
         organization_id = UserScenarioService._get_user_organization_id(token)
+        if scenario_id is not None:
+            scenario = await UserScenarioService._get_owned_scenario(token, scenario_id)
+            return ScenarioListResponse(items=[scenario])
+
         scenarios = await UserScenariosInteractor.list_scenarios(organization_id)
         return ScenarioListResponse(items=scenarios)
 
