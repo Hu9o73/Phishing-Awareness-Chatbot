@@ -4,7 +4,6 @@ import json
 from uuid import uuid4
 
 import pytest
-
 from app.common.interactors.user.challenges_interactor import UserChallengesInteractor
 from app.common.utils import clean_test, init_test
 

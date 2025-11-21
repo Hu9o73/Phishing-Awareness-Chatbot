@@ -36,3 +36,22 @@ services:
       interval: 10s
       timeout: 2s
       retries: 5
+  pac-monitoring:
+    build:
+      context: "./src/monitoring"
+    container_name: "pac-monitoring"
+    ports:
+      - "8003:8003"
+    env_file:
+      - ./envs/.env
+    command: ["fastapi", "run", "./app/Monitoring.py", "--port", "8003"]
+    networks:
+      - pac-network
+    depends_on:
+      - pac-authentication
+      - pac-challenges
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 10s
+      timeout: 2s
+      retries: 5

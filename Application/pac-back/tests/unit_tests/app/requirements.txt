@@ -1,6 +1,6 @@
-pytest
-pydantic
-requests
-dotenv
-supabase
-bcrypt
+pytest==9.0.1
+pydantic==2.12.3
+requests==2.32.5
+dotenv==0.9.9
+supabase==2.24.0
+bcrypt==5.0.0
