@@ -88,21 +88,175 @@
                 <p class="text-sm text-gray-600">{{ member.email }}</p>
               </div>
             </div>
-            <div class="text-xs text-gray-500 flex flex-wrap gap-4">
-              <span class="inline-flex items-center gap-1">
-                <i class="fas fa-id-card"></i>
-                {{ member.id }}
-              </span>
-              <span class="inline-flex items-center gap-1" v-if="member.created_at">
-                <i class="fas fa-clock"></i>
-                Added {{ formatDate(member.created_at) }}
-              </span>
+            <div class="flex flex-col gap-3 sm:items-end">
+              <div class="text-xs text-gray-500 flex flex-wrap gap-4 sm:justify-end">
+                <span class="inline-flex items-center gap-1">
+                  <i class="fas fa-id-card"></i>
+                  {{ member.id }}
+                </span>
+                <span class="inline-flex items-center gap-1" v-if="member.created_at">
+                  <i class="fas fa-clock"></i>
+                  Added {{ formatDate(member.created_at) }}
+                </span>
+              </div>
+              <button
+                @click="openStartChallengeModal(member)"
+                :disabled="scenarios.length === 0"
+                :title="scenarios.length === 0 ? 'Create a scenario first to start a challenge.' : ''"
+                class="self-start sm:self-auto px-4 py-2 bg-gradient-to-r from-phisward-secondary to-phisward-third text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <i class="fas fa-flag-checkered mr-2"></i>
+                Start Challenge
+              </button>
             </div>
           </div>
         </div>
       </section>
 
-      <section v-if="activeTab === 'scenarios'" class="space-y-6">
+      <section v-else-if="activeTab === 'challenges'" class="space-y-6">
+        <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 class="text-3xl font-bold text-phisward-primary">Challenges</h1>
+            <p class="text-gray-600">
+              Monitor phishing awareness challenges started for your organization.
+            </p>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto sm:items-center">
+            <div class="flex items-center gap-2">
+              <label for="challenge_status_filter" class="text-sm font-semibold text-gray-700">Status</label>
+              <select
+                id="challenge_status_filter"
+                v-model="challengeStatusFilter"
+                @change="fetchChallenges"
+                class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-phisward-secondary focus:border-transparent transition-all bg-white text-sm"
+              >
+                <option
+                  v-for="option in challengeStatusOptions"
+                  :key="option.value"
+                  :value="option.value"
+                >
+                  {{ option.label }}
+                </option>
+              </select>
+            </div>
+            <button
+              @click="fetchChallenges"
+              class="px-5 py-2 border border-phisward-secondary text-phisward-secondary rounded-lg font-semibold hover:bg-phisward-secondary/10 transition-all duration-200 disabled:opacity-50"
+              :disabled="challengesLoading"
+            >
+              <span v-if="!challengesLoading">
+                <i class="fas fa-sync-alt mr-2"></i>
+                Refresh Challenges
+              </span>
+              <span v-else>
+                <i class="fas fa-spinner fa-spin mr-2"></i>
+                Loading...
+              </span>
+            </button>
+          </div>
+        </header>
+
+        <div v-if="challengesError" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+          <i class="fas fa-exclamation-triangle"></i>
+          <span>{{ challengesError }}</span>
+        </div>
+
+        <div v-if="challengesSuccess" class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center gap-2">
+          <i class="fas fa-check-circle"></i>
+          <span>{{ challengesSuccess }}</span>
+        </div>
+
+        <div
+          v-if="challengesLoading"
+          class="flex items-center justify-center py-16 bg-white rounded-2xl shadow"
+        >
+          <i class="fas fa-spinner fa-spin text-3xl text-phisward-secondary"></i>
+        </div>
+
+        <div
+          v-else-if="challenges.length === 0"
+          class="flex flex-col items-center justify-center py-16 bg-white rounded-2xl shadow text-center space-y-4"
+        >
+          <div class="w-16 h-16 rounded-full bg-phisward-fourth/50 flex items-center justify-center">
+            <i class="fas fa-flag text-2xl text-phisward-secondary"></i>
+          </div>
+          <div>
+            <h2 class="text-xl font-semibold text-phisward-primary">No challenges to display</h2>
+            <p class="text-gray-600">
+              Start a challenge from the directory to see it tracked here.
+            </p>
+          </div>
+        </div>
+
+        <div v-else class="bg-white rounded-2xl shadow divide-y divide-gray-100">
+          <article
+            v-for="challenge in challenges"
+            :key="challenge.id"
+            class="px-6 py-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4"
+          >
+            <div class="space-y-2">
+              <div class="flex flex-wrap items-center gap-3">
+                <h3 class="text-lg font-semibold text-gray-900">
+                  {{ getMemberName(challenge.employee_id) }}
+                </h3>
+                <span class="text-sm text-gray-600">
+                  {{ getMemberEmail(challenge.employee_id) || 'No email' }}
+                </span>
+                <span
+                  class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide"
+                  :class="statusBadgeClass(challenge.status)"
+                >
+                  <i class="fas fa-bullseye"></i>
+                  {{ formatStatusLabel(challenge.status) }}
+                </span>
+              </div>
+              <p class="text-sm text-gray-700">
+                Scenario:
+                <span class="font-semibold text-phisward-primary">{{ getScenarioName(challenge.scenario_id) }}</span>
+              </p>
+              <div class="flex flex-wrap gap-4 text-xs text-gray-500">
+                <span class="inline-flex items-center gap-1">
+                  <i class="fas fa-percentage"></i>
+                  Score: {{ formatScore(challenge.score) }}
+                </span>
+                <span class="inline-flex items-center gap-1" v-if="challenge.created_at">
+                  <i class="fas fa-clock"></i>
+                  Started {{ formatDate(challenge.created_at) }}
+                </span>
+                <span class="inline-flex items-center gap-1" v-if="challenge.updated_at && challenge.updated_at !== challenge.created_at">
+                  <i class="fas fa-history"></i>
+                  Updated {{ formatDate(challenge.updated_at) }}
+                </span>
+              </div>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+              <button
+                @click="openChallengeStatusModal(challenge)"
+                class="flex-1 sm:flex-none px-4 py-2 bg-phisward-primary text-white rounded-lg font-semibold hover:bg-phisward-primary/90 transition-all duration-200"
+              >
+                <i class="fas fa-pen mr-2"></i>
+                Update Status
+              </button>
+              <button
+                @click="deleteChallenge(challenge.id)"
+                class="flex-1 sm:flex-none px-4 py-2 border border-red-200 text-red-600 rounded-lg font-semibold hover:bg-red-50 transition-all duration-200 disabled:opacity-50"
+                :disabled="deletingChallengeId === challenge.id"
+              >
+                <span v-if="deletingChallengeId !== challenge.id">
+                  <i class="fas fa-trash mr-2"></i>
+                  Delete
+                </span>
+                <span v-else>
+                  <i class="fas fa-spinner fa-spin mr-2"></i>
+                  Deleting...
+                </span>
+              </button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section v-else-if="activeTab === 'scenarios'" class="space-y-6">
         <header class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 class="text-3xl font-bold text-phisward-primary">Training Scenarios</h1>
@@ -165,11 +319,11 @@
                     {{ scenario.complexity }}
                   </span>
                   <span
-                    v-if="scenario.id === selectedScenarioId"
-                    class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-phisward-secondary/10 text-phisward-secondary text-xs font-semibold uppercase tracking-wide"
+                    class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide"
+                    :class="isHookConfigured(scenario.id) ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'"
                   >
-                    <i class="fas fa-thumbtack"></i>
-                    In Focus
+                    <i :class="isHookConfigured(scenario.id) ? 'fas fa-check' : 'fas fa-envelope-open-text'"></i>
+                    {{ isHookConfigured(scenario.id) ? 'Hook Configured' : 'Hook Missing' }}
                   </span>
                 </div>
                 <p class="text-sm text-gray-500">
@@ -486,6 +640,23 @@
       @close="closeHookEmailModal"
       @saved="onHookEmailSaved"
     />
+
+    <StartChallengeModal
+      v-if="showStartChallengeModal && startChallengeMember"
+      :member="startChallengeMember"
+      :scenarios="scenarios"
+      @close="closeStartChallengeModal"
+      @started="onChallengeStarted"
+    />
+
+    <ChallengeStatusModal
+      v-if="showStatusModal && statusModalChallenge"
+      :challenge="statusModalChallenge"
+      :employee-name="getMemberName(statusModalChallenge.employee_id)"
+      :scenario-name="getScenarioName(statusModalChallenge.scenario_id)"
+      @close="closeChallengeStatusModal"
+      @updated="onChallengeUpdated"
+    />
   </DashboardLayout>
 </template>
 
@@ -495,6 +666,8 @@ import { useRoute, useRouter } from 'vue-router'
 import DashboardLayout from '@/components/dashboard/DashboardLayout.vue'
 import ScenarioFormModal from '@/components/dashboard/member/ScenarioFormModal.vue'
 import HookEmailModal from '@/components/dashboard/member/HookEmailModal.vue'
+import StartChallengeModal from '@/components/dashboard/member/StartChallengeModal.vue'
+import ChallengeStatusModal from '@/components/dashboard/member/ChallengeStatusModal.vue'
 
 defineProps({
   role: {
@@ -506,15 +679,37 @@ defineProps({
 const route = useRoute()
 const router = useRouter()
 
-const validTabs = ['org-directory', 'scenarios', 'hook-email', 'import-export']
+const validTabs = ['org-directory', 'challenges', 'scenarios', 'hook-email', 'import-export']
 
 const orgMembers = ref([])
 const orgMembersLoading = ref(false)
 const orgMembersError = ref('')
 const orgMembersLoaded = ref(false)
 
+const challenges = ref([])
+const challengesLoading = ref(false)
+const challengesError = ref('')
+const challengesSuccess = ref('')
+const challengeStatusFilter = ref('ALL')
+const deletingChallengeId = ref('')
+const showStartChallengeModal = ref(false)
+const showStatusModal = ref(false)
+const startChallengeMember = ref(null)
+const statusModalChallenge = ref(null)
+
+const memberCache = ref({})
+const scenarioCache = ref({})
+
+const challengeStatusOptions = [
+  { value: 'ALL', label: 'All statuses' },
+  { value: 'ONGOING', label: 'Ongoing' },
+  { value: 'SUCCESS', label: 'Success' },
+  { value: 'FAILURE', label: 'Failure' }
+]
+
 const tabOptions = [
   { key: 'org-directory', label: 'Directory', icon: 'fas fa-users' },
+  { key: 'challenges', label: 'Challenges', icon: 'fas fa-flag-checkered' },
   { key: 'scenarios', label: 'Scenarios', icon: 'fas fa-tasks' },
   { key: 'hook-email', label: 'Hook Emails', icon: 'fas fa-envelope-open-text' },
   { key: 'import-export', label: 'Import/Export', icon: 'fas fa-file-import' }
@@ -538,6 +733,7 @@ const hookEmailError = ref('')
 const hookEmailSuccess = ref('')
 const deletingHookEmail = ref(false)
 const hookEmailScenarioLoaded = ref('')
+const hookStatus = ref({})
 
 const showHookEmailModal = ref(false)
 const hookEmailModalMode = ref('create')
@@ -581,12 +777,34 @@ const extractErrorMessage = async (response, fallback) => {
       return data.detail.join(', ')
     }
     if (typeof data?.message === 'string') {
-      return data.message
-    }
+    return data.message
+  }
   } catch (err) {
     // ignore parsing errors
   }
   return fallback
+}
+
+const cacheMembers = (members) => {
+  if (!Array.isArray(members)) {
+    return
+  }
+  members.forEach((member) => {
+    if (member?.id) {
+      memberCache.value[member.id] = member
+    }
+  })
+}
+
+const cacheScenarios = (items) => {
+  if (!Array.isArray(items)) {
+    return
+  }
+  items.forEach((scenario) => {
+    if (scenario?.id) {
+      scenarioCache.value[scenario.id] = scenario
+    }
+  })
 }
 
 const fetchOrgMembers = async (force = false) => {
@@ -620,6 +838,7 @@ const fetchOrgMembers = async (force = false) => {
     }
 
     orgMembers.value = await response.json()
+    cacheMembers(orgMembers.value)
     orgMembersLoaded.value = true
   } catch (error) {
     orgMembersError.value = error.message || 'Failed to load organization directory.'
@@ -660,7 +879,9 @@ const fetchScenarios = async () => {
 
     const data = await response.json()
     scenarios.value = Array.isArray(data?.items) ? data.items : []
+    cacheScenarios(scenarios.value)
     ensureScenarioSelection()
+    await preloadHookStatuses()
   } catch (error) {
     scenariosError.value = error.message || 'Failed to load scenarios.'
     scenarios.value = []
@@ -714,6 +935,22 @@ watch(
       selectedScenarioId.value = scenarioId
     }
   }
+)
+
+watch(
+  orgMembers,
+  (members) => {
+    cacheMembers(members)
+  },
+  { deep: true }
+)
+
+watch(
+  scenarios,
+  (items) => {
+    cacheScenarios(items)
+  },
+  { deep: true }
 )
 
 watch(
@@ -829,6 +1066,7 @@ const loadHookEmail = async (scenarioId, force = false) => {
     if (response.status === 404) {
       hookEmail.value = null
       hookEmailScenarioLoaded.value = scenarioId
+      hookStatus.value[scenarioId] = false
       return
     }
 
@@ -838,6 +1076,7 @@ const loadHookEmail = async (scenarioId, force = false) => {
     }
 
     hookEmail.value = await response.json()
+    hookStatus.value[scenarioId] = true
     hookEmailScenarioLoaded.value = scenarioId
   } catch (error) {
     hookEmailError.value = error.message || 'Failed to load hook email.'
@@ -873,6 +1112,7 @@ const closeHookEmailModal = () => {
 const onHookEmailSaved = async (message) => {
   showHookEmailModal.value = false
   hookEmailSuccess.value = message || 'Hook email saved successfully.'
+  hookStatus.value[selectedScenarioId.value] = true
   await loadHookEmail(selectedScenarioId.value, true)
 }
 
@@ -910,6 +1150,7 @@ const deleteHookEmail = async () => {
     hookEmailSuccess.value = 'Hook email deleted successfully.'
     hookEmail.value = null
     hookEmailScenarioLoaded.value = ''
+    hookStatus.value[selectedScenarioId.value] = false
   } catch (error) {
     hookEmailError.value = error.message || 'Failed to delete hook email.'
   } finally {
@@ -1016,11 +1257,273 @@ const exportScenario = async () => {
   }
 }
 
+const resolveMember = async (memberId) => {
+  if (!memberId) {
+    return null
+  }
+  if (memberCache.value[memberId]) {
+    return memberCache.value[memberId]
+  }
+  const existingMember = orgMembers.value.find((member) => member.id === memberId)
+  if (existingMember) {
+    memberCache.value[memberId] = existingMember
+    return existingMember
+  }
+
+  try {
+    const token = localStorage.getItem('user_jwt_token')
+    if (!token) {
+      throw new Error('Authentication token is missing. Please log in again.')
+    }
+    const response = await fetch(`/api/challenges/user/organization/members?id=${memberId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+    if (!response.ok) {
+      return null
+    }
+    const data = await response.json()
+    if (Array.isArray(data) && data[0]?.id) {
+      memberCache.value[data[0].id] = data[0]
+      return data[0]
+    }
+  } catch (err) {
+    // swallow errors and let the UI fallback to IDs
+  }
+  return null
+}
+
+const resolveScenario = async (scenarioId) => {
+  if (!scenarioId) {
+    return null
+  }
+  if (scenarioCache.value[scenarioId]) {
+    return scenarioCache.value[scenarioId]
+  }
+  const existingScenario = scenarios.value.find((scenario) => scenario.id === scenarioId)
+  if (existingScenario) {
+    scenarioCache.value[scenarioId] = existingScenario
+    return existingScenario
+  }
+
+  try {
+    const token = localStorage.getItem('user_jwt_token')
+    if (!token) {
+      throw new Error('Authentication token is missing. Please log in again.')
+    }
+    const response = await fetch(`/api/challenges/user/scenarios?id=${scenarioId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+    if (!response.ok) {
+      return null
+    }
+    const data = await response.json()
+    if (Array.isArray(data?.items) && data.items[0]?.id) {
+      scenarioCache.value[data.items[0].id] = data.items[0]
+      return data.items[0]
+    }
+  } catch (err) {
+    // ignore detail fetch errors
+  }
+  return null
+}
+
+const resolveChallengeDetails = async (items) => {
+  if (!Array.isArray(items)) {
+    return
+  }
+  await Promise.all(
+    items.map(async (challenge) => {
+      await Promise.all([resolveMember(challenge.employee_id), resolveScenario(challenge.scenario_id)])
+    })
+  )
+}
+
+const checkScenarioHook = async (scenarioId, force = false) => {
+  if (!scenarioId) {
+    return false
+  }
+  if (!force && scenarioId in hookStatus.value) {
+    return hookStatus.value[scenarioId]
+  }
+
+  try {
+    const token = localStorage.getItem('user_jwt_token')
+    if (!token) {
+      throw new Error('Authentication token is missing. Please log in again.')
+    }
+
+    const response = await fetch(`/api/challenges/user/scenarios/hook-email?scenario_id=${scenarioId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    if (response.status === 404) {
+      hookStatus.value[scenarioId] = false
+      return false
+    }
+
+    if (!response.ok) {
+      const message = await extractErrorMessage(response, 'Failed to verify hook email.')
+      throw new Error(message)
+    }
+
+    hookStatus.value[scenarioId] = true
+    return true
+  } catch (error) {
+    // keep previous known value if we have one
+    return hookStatus.value[scenarioId] ?? false
+  }
+}
+
+const preloadHookStatuses = async () => {
+  const scenarioIds = scenarios.value.map((scenario) => scenario.id)
+  await Promise.allSettled(scenarioIds.map((id) => checkScenarioHook(id)))
+}
+
+const fetchChallenges = async () => {
+  challengesLoading.value = true
+  challengesError.value = ''
+
+  const params = new URLSearchParams()
+  if (challengeStatusFilter.value !== 'ALL') {
+    params.append('status', challengeStatusFilter.value)
+  }
+  const query = params.toString() ? `?${params.toString()}` : ''
+
+  try {
+    const token = localStorage.getItem('user_jwt_token')
+    if (!token) {
+      throw new Error('Authentication token is missing. Please log in again.')
+    }
+
+    const response = await fetch(`/api/monitoring/challenges${query}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    if (!response.ok) {
+      const message = await extractErrorMessage(response, 'Failed to load challenges.')
+      throw new Error(message)
+    }
+
+    const data = await response.json()
+    challenges.value = Array.isArray(data?.items) ? data.items : []
+    await resolveChallengeDetails(challenges.value)
+  } catch (error) {
+    challengesError.value = error.message || 'Failed to load challenges.'
+    challenges.value = []
+  } finally {
+    challengesLoading.value = false
+  }
+}
+
+const openStartChallengeModal = (member) => {
+  if (!member || scenarios.value.length === 0) {
+    challengesError.value = scenarios.value.length === 0 ? 'Create a scenario before starting a challenge.' : 'Select a valid employee.'
+    return
+  }
+  challengesError.value = ''
+  challengesSuccess.value = ''
+  startChallengeMember.value = member
+  showStartChallengeModal.value = true
+}
+
+const closeStartChallengeModal = () => {
+  showStartChallengeModal.value = false
+  startChallengeMember.value = null
+}
+
+const onChallengeStarted = async (challenge) => {
+  closeStartChallengeModal()
+  if (challenge?.id) {
+    challengesSuccess.value = 'Challenge started successfully.'
+    if (activeTab.value !== 'challenges') {
+      navigateToTab('challenges')
+    } else {
+      await fetchChallenges()
+    }
+  }
+}
+
+const openChallengeStatusModal = (challenge) => {
+  if (!challenge) {
+    return
+  }
+  challengesError.value = ''
+  challengesSuccess.value = ''
+  statusModalChallenge.value = challenge
+  showStatusModal.value = true
+}
+
+const closeChallengeStatusModal = () => {
+  showStatusModal.value = false
+  statusModalChallenge.value = null
+}
+
+const onChallengeUpdated = async (updatedChallenge, message) => {
+  closeChallengeStatusModal()
+  if (updatedChallenge?.id) {
+    challengesSuccess.value = message || 'Challenge updated successfully.'
+    await fetchChallenges()
+  }
+}
+
+const deleteChallenge = async (challengeId) => {
+  if (!challengeId) {
+    return
+  }
+
+  if (!window.confirm('Delete this challenge? Only completed challenges can be removed.')) {
+    return
+  }
+
+  deletingChallengeId.value = challengeId
+  challengesError.value = ''
+  challengesSuccess.value = ''
+
+  try {
+    const token = localStorage.getItem('user_jwt_token')
+    if (!token) {
+      throw new Error('Authentication token is missing. Please log in again.')
+    }
+
+    const response = await fetch(`/api/monitoring/challenges?challenge_id=${challengeId}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    if (!response.ok) {
+      const message = await extractErrorMessage(response, 'Failed to delete challenge.')
+      throw new Error(message)
+    }
+
+    challengesSuccess.value = 'Challenge deleted successfully.'
+    await fetchChallenges()
+  } catch (error) {
+    challengesError.value = error.message || 'Failed to delete challenge.'
+  } finally {
+    deletingChallengeId.value = ''
+  }
+}
+
 watch(
   activeTab,
   (tab) => {
     if (tab === 'org-directory') {
       fetchOrgMembers()
+    }
+
+    if (tab === 'challenges') {
+      fetchOrgMembers()
+      fetchChallenges()
     }
 
     if (tab === 'import-export') {
@@ -1054,6 +1557,62 @@ const prettyJson = (value) => {
   } catch (err) {
     return String(value)
   }
+}
+
+const getMemberName = (memberId) => {
+  const member = memberCache.value[memberId] || orgMembers.value.find((item) => item.id === memberId)
+  if (!member) {
+    return 'Unknown employee'
+  }
+  return `${member.first_name} ${member.last_name}`
+}
+
+const getMemberEmail = (memberId) => {
+  const member = memberCache.value[memberId] || orgMembers.value.find((item) => item.id === memberId)
+  return member?.email || ''
+}
+
+const getScenarioName = (scenarioId) => {
+  const scenario = scenarioCache.value[scenarioId] || scenarios.value.find((item) => item.id === scenarioId)
+  return scenario?.name || 'Unknown scenario'
+}
+
+const statusBadgeClass = (status) => {
+  if (status === 'SUCCESS') {
+    return 'bg-green-100 text-green-700'
+  }
+  if (status === 'FAILURE') {
+    return 'bg-red-100 text-red-700'
+  }
+  if (status === 'ONGOING') {
+    return 'bg-phisward-fourth text-phisward-primary'
+  }
+  return 'bg-gray-100 text-gray-700'
+}
+
+const formatStatusLabel = (status) => {
+  if (!status) {
+    return ''
+  }
+  return status.charAt(0) + status.slice(1).toLowerCase()
+}
+
+const formatScore = (score) => {
+  if (score === null || score === undefined) {
+    return 'N/A'
+  }
+  const numericScore = Number(score)
+  if (Number.isNaN(numericScore)) {
+    return 'N/A'
+  }
+  return numericScore
+}
+
+const isHookConfigured = (scenarioId) => {
+  if (!scenarioId) {
+    return false
+  }
+  return Boolean(hookStatus.value[scenarioId])
 }
 
 const formatDate = (value) => {
