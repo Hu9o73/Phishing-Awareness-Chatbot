@@ -67,6 +67,15 @@ def _create_member(env, member_ids: set[UUID]) -> OrgMemberModel:
     return member
 
 
+def _create_scenario_without_hook(env, scenario_ids: set[str]) -> UUID:
+    payload = _scenario_payload()
+    response = UserChallengesInteractor.create_scenario(env.user_token, payload)
+    assert response.status_code == 201
+    scenario_id = response.json()["id"]
+    scenario_ids.add(scenario_id)
+    return UUID(scenario_id)
+
+
 def _cleanup_records(env, scenario_ids: set[str], member_ids: set[UUID], challenge_ids: set[str], email_ids: set[str]):
     supabase = get_db()
     for challenge_id in list(challenge_ids):
@@ -209,6 +218,21 @@ def test_start_challenge_authorization(test_env, token_attr, expected_status):
         assert payload["status"] == "ONGOING"
 
 
+def test_start_challenge_requires_hook_email(test_env):
+    env, scenario_ids, member_ids, challenge_ids, email_ids = test_env
+    scenario_id = _create_scenario_without_hook(env, scenario_ids)
+    member = _create_member(env, member_ids)
+
+    supabase = get_db()
+    before = supabase.table("challenges").select("id").eq("scenario_id", str(scenario_id)).execute().data or []
+
+    response = UserMonitoringInteractor.start_challenge(env.user_token, member.id, scenario_id)
+
+    assert response.status_code == 404
+    after = supabase.table("challenges").select("id").eq("scenario_id", str(scenario_id)).execute().data or []
+    assert len(after) == len(before)
+
+
 @pytest.mark.parametrize(
     "token_attr,expected_status,expect_item",
     [
@@ -345,6 +369,17 @@ def test_update_challenge_status_rejects_non_integer_score(test_env):
     assert response.status_code == 400
 
 
+def test_update_challenge_status_rejects_out_of_bounds(test_env):
+    env, scenario_ids, member_ids, challenge_ids, email_ids = test_env
+    challenge_data = _start_valid_challenge(env, scenario_ids, member_ids, challenge_ids, email_ids)
+
+    for payload in ({"status": "SUCCESS", "score": -1}, {"status": "FAILURE", "score": 101}):
+        response = UserMonitoringInteractor.update_challenge_status(
+            env.user_token, challenge_data["id"], payload
+        )
+        assert response.status_code == 400
+
+
 def test_update_challenge_status_rejects_invalid_status(test_env):
     env, scenario_ids, member_ids, challenge_ids, email_ids = test_env
     challenge_data = _start_valid_challenge(env, scenario_ids, member_ids, challenge_ids, email_ids)
@@ -396,6 +431,19 @@ def test_delete_challenge_rejects_ongoing(test_env):
     response = UserMonitoringInteractor.delete_challenge(env.user_token, challenge_data["id"])
 
     assert response.status_code == 400
+
+
+def test_delete_challenge_allows_failure_status(test_env):
+    env, scenario_ids, member_ids, challenge_ids, email_ids = test_env
+    challenge_data = _start_valid_challenge(env, scenario_ids, member_ids, challenge_ids, email_ids)
+    _mark_challenge_status(env, challenge_data["id"], "FAILURE", score=3)
+
+    response = UserMonitoringInteractor.delete_challenge(env.user_token, challenge_data["id"])
+
+    assert response.status_code == 200
+    challenge_ids.discard(challenge_data["id"])
+    payload = response.json()
+    assert payload["status"] == "ok"
 
 
 def test_retrieve_status_returns_challenge_status(test_env):

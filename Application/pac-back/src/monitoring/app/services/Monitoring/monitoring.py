@@ -81,15 +81,14 @@ class MonitoringService:
         if employee is None or employee.organization_id != user.organization_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Employee not found.")
 
-        challenge = await MonitoringChallengesInteractor.create_challenge(user.id, employee_id, scenario_id)
-
-        send_email(employee.email, f"Start phishing awareness challenge for scenario {scenario.name}")
-
         hook_exchange = await MonitoringExchangesInteractor.get_hook_exchange_for_scenario(scenario_id)
         if hook_exchange is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Hook email not found for scenario."
             )
+
+        challenge = await MonitoringChallengesInteractor.create_challenge(user.id, employee_id, scenario_id)
+        send_email(employee.email, f"Start phishing awareness challenge for scenario {scenario.name}")
         updated_challenge = await MonitoringChallengesInteractor.update_last_exchange_id(
             challenge.id, hook_exchange.id
         )
@@ -158,6 +157,11 @@ class MonitoringService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Score must be an integer value.",
             ) from exc
+        if score < 0 or score > 100:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Score must be between 0 and 100.",
+            )
         updated = await MonitoringChallengesInteractor.update_challenge_status(
             challenge.id, challenge_update.status, score
         )
@@ -171,10 +175,10 @@ class MonitoringService:
     @staticmethod
     async def delete_challenge(token: str, challenge_id: UUID) -> StatusResponse:
         challenge = await MonitoringService._get_challenge_for_org(token, challenge_id)
-        if challenge.status == ChallengeStatus.ONGOING:
+        if challenge.status not in (ChallengeStatus.SUCCESS, ChallengeStatus.FAILURE):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Ongoing challenges cannot be deleted.",
+                detail="Only completed challenges can be deleted.",
             )
 
         deleted = await MonitoringChallengesInteractor.delete_challenge(challenge.id)

@@ -134,6 +134,28 @@ def test_list_scenarios_authorization(test_env, token_attr, expected_status, exp
         assert any(item["id"] == created_id for item in items)
 
 
+def test_list_scenarios_by_id_returns_single_item(test_env):
+    env, scenario_ids = test_env
+    scenario_id = _create_owned_scenario(env, scenario_ids)
+
+    response = UserChallengesInteractor.list_scenarios(env.user_token, scenario_id)
+
+    assert response.status_code == 200
+    items = response.json().get("items", [])
+    assert len(items) == 1
+    assert items[0]["id"] == scenario_id
+
+
+def test_list_scenarios_by_id_not_found(test_env):
+    env, scenario_ids = test_env
+    missing_id = str(uuid4())
+
+    response = UserChallengesInteractor.list_scenarios(env.user_token, missing_id)
+
+    assert response.status_code == 404
+    assert response.json().get("detail")
+
+
 @pytest.mark.parametrize(
     "token_attr,payload_case,expected_status",
     [

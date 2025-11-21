@@ -17,3 +17,11 @@ class OrgMembersInteractor:
         if not response.data:
             return []
         return [OrgMemberModel(**member) for member in response.data]
+
+    @staticmethod
+    async def get_member(member_id: UUID) -> OrgMemberModel | None:
+        supabase = get_db()
+        response = supabase.table("org_members").select("*").eq("id", str(member_id)).limit(1).execute()
+        if not response.data:
+            return None
+        return OrgMemberModel(**response.data[0])

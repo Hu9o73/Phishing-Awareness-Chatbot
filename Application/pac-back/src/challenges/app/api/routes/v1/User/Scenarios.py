@@ -23,9 +23,12 @@ security = HTTPBearer()
 
 
 @router.get("/scenarios", response_model=ScenarioListResponse)
-async def list_scenarios(credentials: HTTPAuthorizationCredentials = Depends(security)) -> ScenarioListResponse:
+async def list_scenarios(
+    scenario_id: UUID | None = Query(None, alias="id", description="Return only the matching scenario ID."),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> ScenarioListResponse:
     token = credentials.credentials
-    return await UserScenarioService.list_scenarios(token)
+    return await UserScenarioService.list_scenarios(token, scenario_id)
 
 
 @router.post("/scenarios", response_model=Scenario, status_code=status.HTTP_201_CREATED)
