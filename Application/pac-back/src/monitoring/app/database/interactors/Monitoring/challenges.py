@@ -65,7 +65,7 @@ class MonitoringChallengesInteractor:
 
     @staticmethod
     async def update_challenge_status(
-        challenge_id: UUID, status: ChallengeStatus, score: float
+        challenge_id: UUID, status: ChallengeStatus, score: int
     ) -> Challenge | None:
         supabase: Client = get_db()
         response = (

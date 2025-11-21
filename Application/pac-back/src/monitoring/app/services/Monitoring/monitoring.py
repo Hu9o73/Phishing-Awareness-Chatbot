@@ -145,7 +145,19 @@ class MonitoringService:
                 detail="Challenge status can only be set to SUCCESS or FAILURE.",
             )
 
-        score = challenge_update.score if challenge_update.score is not None else 0
+        raw_score = challenge_update.score if challenge_update.score is not None else 0
+        if isinstance(raw_score, float) and not raw_score.is_integer():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Score must be an integer value.",
+            )
+        try:
+            score = int(raw_score)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Score must be an integer value.",
+            ) from exc
         updated = await MonitoringChallengesInteractor.update_challenge_status(
             challenge.id, challenge_update.status, score
         )

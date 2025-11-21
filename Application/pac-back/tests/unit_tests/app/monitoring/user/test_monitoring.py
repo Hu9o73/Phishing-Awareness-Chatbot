@@ -308,7 +308,7 @@ def test_list_challenges_returns_all_statuses_when_no_filter(test_env):
 def test_update_challenge_status_authorization(test_env, token_attr, expected_status):
     env, scenario_ids, member_ids, challenge_ids, email_ids = test_env
     challenge_data = _start_valid_challenge(env, scenario_ids, member_ids, challenge_ids, email_ids)
-    payload = {"status": "SUCCESS", "score": 42.5}
+    payload = {"status": "SUCCESS", "score": 42}
 
     token = _resolve_token(env, token_attr)
     response = UserMonitoringInteractor.update_challenge_status(token, challenge_data["id"], payload)
@@ -332,6 +332,17 @@ def test_update_challenge_status_defaults_score(test_env):
     updated = response.json()
     assert updated["status"] == "FAILURE"
     assert updated["score"] == 0
+
+
+def test_update_challenge_status_rejects_non_integer_score(test_env):
+    env, scenario_ids, member_ids, challenge_ids, email_ids = test_env
+    challenge_data = _start_valid_challenge(env, scenario_ids, member_ids, challenge_ids, email_ids)
+
+    response = UserMonitoringInteractor.update_challenge_status(
+        env.user_token, challenge_data["id"], {"status": "SUCCESS", "score": 12.5}
+    )
+
+    assert response.status_code == 400
 
 
 def test_update_challenge_status_rejects_invalid_status(test_env):
