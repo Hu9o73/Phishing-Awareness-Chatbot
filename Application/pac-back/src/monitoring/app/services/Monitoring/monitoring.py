@@ -10,9 +10,11 @@ from app.models.base_models import (
     Challenge,
     ChallengeListResponse,
     ChallengeStatusResponse,
+    ChallengeStatusUpdate,
     Email,
     ExchangesResponse,
     PublicUserModel,
+    StatusResponse,
 )
 from app.models.enum_models import ChallengeStatus, ChannelEnum, EmailRole, RoleEnum
 from app.services.Base.authentication import AuthenticationService
@@ -131,3 +133,42 @@ class MonitoringService:
 
         exchanges.reverse()
         return ExchangesResponse(exchanges=exchanges)
+
+    @staticmethod
+    async def update_challenge_status(
+        token: str, challenge_id: UUID, challenge_update: ChallengeStatusUpdate
+    ) -> Challenge:
+        challenge = await MonitoringService._get_challenge_for_org(token, challenge_id)
+        if challenge_update.status not in (ChallengeStatus.SUCCESS, ChallengeStatus.FAILURE):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Challenge status can only be set to SUCCESS or FAILURE.",
+            )
+
+        score = challenge_update.score if challenge_update.score is not None else 0
+        updated = await MonitoringChallengesInteractor.update_challenge_status(
+            challenge.id, challenge_update.status, score
+        )
+        if updated is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Challenge not found.",
+            )
+        return updated
+
+    @staticmethod
+    async def delete_challenge(token: str, challenge_id: UUID) -> StatusResponse:
+        challenge = await MonitoringService._get_challenge_for_org(token, challenge_id)
+        if challenge.status == ChallengeStatus.ONGOING:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Ongoing challenges cannot be deleted.",
+            )
+
+        deleted = await MonitoringChallengesInteractor.delete_challenge(challenge.id)
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Challenge not found.",
+            )
+        return StatusResponse(status="ok", message=f"Challenge {challenge_id} deleted successfully.")

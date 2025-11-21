@@ -75,6 +75,11 @@ class ChallengeStatusResponse(BaseModel):
     status: ChallengeStatus
 
 
+class ChallengeStatusUpdate(BaseModel):
+    status: ChallengeStatus
+    score: float | None = None
+
+
 class Email(BaseModel):
     id: UUID
     scenario_id: UUID

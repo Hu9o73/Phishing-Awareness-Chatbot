@@ -62,3 +62,30 @@ class MonitoringChallengesInteractor:
         if not response.data:
             return None
         return Challenge(**response.data[0])
+
+    @staticmethod
+    async def update_challenge_status(
+        challenge_id: UUID, status: ChallengeStatus, score: float
+    ) -> Challenge | None:
+        supabase: Client = get_db()
+        response = (
+            supabase.table("challenges")
+            .update(
+                {
+                    "status": status.value,
+                    "score": score,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            .eq("id", str(challenge_id))
+            .execute()
+        )
+        if not response.data:
+            return None
+        return Challenge(**response.data[0])
+
+    @staticmethod
+    async def delete_challenge(challenge_id: UUID) -> bool:
+        supabase: Client = get_db()
+        response = supabase.table("challenges").delete().eq("id", str(challenge_id)).execute()
+        return bool(response.data)

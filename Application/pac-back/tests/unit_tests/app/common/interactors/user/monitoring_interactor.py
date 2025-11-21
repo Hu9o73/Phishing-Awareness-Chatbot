@@ -53,3 +53,22 @@ class UserMonitoringInteractor:
             headers=headers,
             params={"challenge_id": str(challenge_id)},
         )
+
+    @staticmethod
+    def update_challenge_status(token: str | None, challenge_id: UUID, payload: dict):
+        headers = UserMonitoringInteractor._build_headers(token)
+        return requests.put(
+            f"{UserMonitoringInteractor._BASE_URL}/challenges/status",
+            headers=headers,
+            params={"challenge_id": str(challenge_id)},
+            json=payload,
+        )
+
+    @staticmethod
+    def delete_challenge(token: str | None, challenge_id: UUID):
+        headers = UserMonitoringInteractor._build_headers(token)
+        return requests.delete(
+            f"{UserMonitoringInteractor._BASE_URL}/challenges",
+            headers=headers,
+            params={"challenge_id": str(challenge_id)},
+        )

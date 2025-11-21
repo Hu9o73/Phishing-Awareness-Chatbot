@@ -1,6 +1,13 @@
 from uuid import UUID
 
-from app.models.base_models import Challenge, ChallengeListResponse, ChallengeStatusResponse, ExchangesResponse
+from app.models.base_models import (
+    Challenge,
+    ChallengeListResponse,
+    ChallengeStatusResponse,
+    ChallengeStatusUpdate,
+    ExchangesResponse,
+    StatusResponse,
+)
 from app.models.enum_models import ChallengeStatus
 from app.services.Monitoring.monitoring import MonitoringService
 from fastapi import APIRouter, Depends, Query, status
@@ -31,11 +38,30 @@ async def retrieve_status(
 
 @router.get("/challenges", response_model=ChallengeListResponse)
 async def list_challenges(
-    status: ChallengeStatus | None = None,
+    status: ChallengeStatus | None = Query(None, description="Optional challenge status filter."),
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> ChallengeListResponse:
     token = credentials.credentials
     return await MonitoringService.list_challenges(token, status)
+
+
+@router.put("/challenges/status", response_model=Challenge)
+async def update_challenge_status(
+    challenge_update: ChallengeStatusUpdate,
+    challenge_id: UUID,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> Challenge:
+    token = credentials.credentials
+    return await MonitoringService.update_challenge_status(token, challenge_id, challenge_update)
+
+
+@router.delete("/challenges", response_model=StatusResponse)
+async def delete_challenge(
+    challenge_id: UUID,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> StatusResponse:
+    token = credentials.credentials
+    return await MonitoringService.delete_challenge(token, challenge_id)
 
 
 @router.get("/get-exchanges", response_model=ExchangesResponse)
