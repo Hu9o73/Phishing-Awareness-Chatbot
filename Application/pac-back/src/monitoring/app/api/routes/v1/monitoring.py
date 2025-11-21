@@ -1,8 +1,9 @@
 from uuid import UUID
 
-from app.models.base_models import Challenge, ChallengeStatusResponse, ExchangesResponse
+from app.models.base_models import Challenge, ChallengeListResponse, ChallengeStatusResponse, ExchangesResponse
+from app.models.enum_models import ChallengeStatus
 from app.services.Monitoring.monitoring import MonitoringService
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 router = APIRouter()
@@ -26,6 +27,15 @@ async def retrieve_status(
 ) -> ChallengeStatusResponse:
     token = credentials.credentials
     return await MonitoringService.retrieve_status(token, challenge_id)
+
+
+@router.get("/challenges", response_model=ChallengeListResponse)
+async def list_challenges(
+    status: ChallengeStatus | None = None,
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> ChallengeListResponse:
+    token = credentials.credentials
+    return await MonitoringService.list_challenges(token, status)
 
 
 @router.get("/get-exchanges", response_model=ExchangesResponse)

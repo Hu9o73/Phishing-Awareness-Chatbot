@@ -6,8 +6,15 @@ from app.database.interactors.Base.org_members import OrgMembersInteractor
 from app.database.interactors.Monitoring.challenges import MonitoringChallengesInteractor
 from app.database.interactors.Monitoring.exchanges import MonitoringExchangesInteractor
 from app.database.interactors.Monitoring.scenarios import MonitoringScenariosInteractor
-from app.models.base_models import Challenge, ChallengeStatusResponse, Email, ExchangesResponse, PublicUserModel
-from app.models.enum_models import ChannelEnum, EmailRole, RoleEnum
+from app.models.base_models import (
+    Challenge,
+    ChallengeListResponse,
+    ChallengeStatusResponse,
+    Email,
+    ExchangesResponse,
+    PublicUserModel,
+)
+from app.models.enum_models import ChallengeStatus, ChannelEnum, EmailRole, RoleEnum
 from app.services.Base.authentication import AuthenticationService
 from app.services.email_service import send_email
 from fastapi import HTTPException, status
@@ -93,6 +100,12 @@ class MonitoringService:
     async def retrieve_status(token: str, challenge_id: UUID) -> ChallengeStatusResponse:
         challenge = await MonitoringService._get_challenge_for_org(token, challenge_id)
         return ChallengeStatusResponse(status=challenge.status)
+
+    @staticmethod
+    async def list_challenges(token: str, status: ChallengeStatus | None = None) -> ChallengeListResponse:
+        user = MonitoringService._get_current_member_user(token)
+        challenges = await MonitoringChallengesInteractor.list_challenges_for_user(user.id, status)
+        return ChallengeListResponse(items=challenges)
 
     @staticmethod
     async def get_exchanges(token: str, challenge_id: UUID) -> ExchangesResponse:

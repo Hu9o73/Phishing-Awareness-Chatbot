@@ -67,6 +67,10 @@ class Challenge(BaseModel):
     created_at: datetime | None = None
 
 
+class ChallengeListResponse(BaseModel):
+    items: list[Challenge]
+
+
 class ChallengeStatusResponse(BaseModel):
     status: ChallengeStatus
 

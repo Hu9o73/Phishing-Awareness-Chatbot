@@ -35,6 +35,17 @@ class MonitoringChallengesInteractor:
         return Challenge(**response.data[0])
 
     @staticmethod
+    async def list_challenges_for_user(user_id: UUID, status: ChallengeStatus | None = None) -> list[Challenge]:
+        supabase: Client = get_db()
+        query = supabase.table("challenges").select("*").eq("user_id", str(user_id))
+        if status is not None:
+            query = query.eq("status", status.value)
+        response = query.execute()
+        if not response.data:
+            return []
+        return [Challenge(**entry) for entry in response.data]
+
+    @staticmethod
     async def update_last_exchange_id(challenge_id: UUID, exchange_id: UUID) -> Challenge | None:
         supabase: Client = get_db()
         response = (

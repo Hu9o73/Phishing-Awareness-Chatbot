@@ -38,6 +38,14 @@ class UserMonitoringInteractor:
         )
 
     @staticmethod
+    def list_challenges(token: str | None, status: str | None = None):
+        headers = UserMonitoringInteractor._build_headers(token)
+        params = {}
+        if status is not None:
+            params["status"] = status
+        return requests.get(f"{UserMonitoringInteractor._BASE_URL}/challenges", headers=headers, params=params)
+
+    @staticmethod
     def get_exchanges(token: str | None, challenge_id: UUID):
         headers = UserMonitoringInteractor._build_headers(token)
         return requests.get(

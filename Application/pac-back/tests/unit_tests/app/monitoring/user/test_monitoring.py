@@ -124,6 +124,30 @@ def _update_challenge_last_exchange(challenge_id: str, exchange_id: str):
     assert response.data
 
 
+def _update_challenge_status(challenge_id: str, status: str):
+    supabase = get_db()
+    response = supabase.table("challenges").update({"status": status}).eq("id", challenge_id).execute()
+    assert response.data
+
+
+def _insert_challenge_record(user_id: UUID, employee_id: UUID, scenario_id: str, challenge_ids: set[str], status: str):
+    supabase = get_db()
+    payload = {
+        "user_id": str(user_id),
+        "employee_id": str(employee_id),
+        "scenario_id": scenario_id,
+        "channel": "EMAIL",
+        "status": status,
+        "score": None,
+        "last_exchange_id": None,
+    }
+    response = supabase.table("challenges").insert(payload).execute()
+    assert response.data
+    challenge_id = response.data[0]["id"]
+    challenge_ids.add(challenge_id)
+    return challenge_id
+
+
 @pytest.fixture
 def test_env():
     env = init_test()
@@ -174,6 +198,85 @@ def test_start_challenge_authorization(test_env, token_attr, expected_status):
         assert payload["scenario_id"] == str(scenario_id)
         assert payload["channel"] == "EMAIL"
         assert payload["status"] == "ONGOING"
+
+
+@pytest.mark.parametrize(
+    "token_attr,expected_status,expect_item",
+    [
+        ("user_token", 200, True),
+        ("orgadmin_token", 403, False),
+        ("admin_token", 403, False),
+        ("wrong_token", 502, False),
+        (None, 403, False),
+    ],
+    ids=[
+        "user",
+        "orgadmin_forbidden",
+        "admin_forbidden",
+        "invalid_token",
+        "missing_token",
+    ],
+)
+def test_list_challenges_authorization(test_env, token_attr, expected_status, expect_item):
+    env, scenario_ids, member_ids, challenge_ids, email_ids = test_env
+    created_id = None
+    if expect_item:
+        challenge_data = _start_valid_challenge(env, scenario_ids, member_ids, challenge_ids, email_ids)
+        created_id = challenge_data["id"]
+
+    token = _resolve_token(env, token_attr)
+    response = UserMonitoringInteractor.list_challenges(token)
+
+    assert response.status_code == expected_status
+    if expected_status == 200 and created_id:
+        items = response.json().get("items", [])
+        assert any(item["id"] == created_id for item in items)
+
+
+def test_list_challenges_filters_only_user_ongoing(test_env):
+    env, scenario_ids, member_ids, challenge_ids, email_ids = test_env
+    challenge_data = _start_valid_challenge(env, scenario_ids, member_ids, challenge_ids, email_ids)
+
+    closed_member = _create_member(env, member_ids)
+    closed_challenge_id = _insert_challenge_record(
+        env.user.id, closed_member.id, challenge_data["scenario_id"], challenge_ids, "ONGOING"
+    )
+    _update_challenge_status(closed_challenge_id, "SUCCESS")
+
+    foreign_member = _create_member(env, member_ids)
+    foreign_challenge_id = _insert_challenge_record(
+        env.orgadmin.id, foreign_member.id, challenge_data["scenario_id"], challenge_ids, "ONGOING"
+    )
+
+    response = UserMonitoringInteractor.list_challenges(env.user_token, "ONGOING")
+
+    assert response.status_code == 200
+    items = response.json().get("items", [])
+    returned_ids = [item["id"] for item in items]
+    assert challenge_data["id"] in returned_ids
+    assert closed_challenge_id not in returned_ids
+    assert foreign_challenge_id not in returned_ids
+    assert all(item["status"] == "ONGOING" for item in items)
+    assert all(item["user_id"] == str(env.user.id) for item in items)
+
+
+def test_list_challenges_returns_all_statuses_when_no_filter(test_env):
+    env, scenario_ids, member_ids, challenge_ids, email_ids = test_env
+    ongoing_challenge = _start_valid_challenge(env, scenario_ids, member_ids, challenge_ids, email_ids)
+
+    member = _create_member(env, member_ids)
+    success_challenge = _insert_challenge_record(
+        env.user.id, member.id, ongoing_challenge["scenario_id"], challenge_ids, "SUCCESS"
+    )
+
+    response = UserMonitoringInteractor.list_challenges(env.user_token)
+
+    assert response.status_code == 200
+    items = response.json().get("items", [])
+    returned_ids = [item["id"] for item in items]
+    assert ongoing_challenge["id"] in returned_ids
+    assert success_challenge in returned_ids
+    assert all(item["user_id"] == str(env.user.id) for item in items)
 
 
 def test_retrieve_status_returns_challenge_status(test_env):
