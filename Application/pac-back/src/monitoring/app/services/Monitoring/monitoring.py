@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from uuid import UUID
+from datetime import datetime
+from uuid import UUID, uuid4
 
 from app.database.interactors.Base.org_members import OrgMembersInteractor
 from app.database.interactors.Monitoring.challenges import MonitoringChallengesInteractor
@@ -12,13 +13,19 @@ from app.models.base_models import (
     ChallengeStatusResponse,
     ChallengeStatusUpdate,
     Email,
+    EmailCreate,
     ExchangesResponse,
     PublicUserModel,
     StatusResponse,
 )
-from app.models.enum_models import ChallengeStatus, ChannelEnum, EmailRole, RoleEnum
+from app.models.enum_models import ChallengeStatus, ChannelEnum, EmailRole, EmailStatus, RoleEnum
 from app.services.Base.authentication import AuthenticationService
-from app.services.email_service import send_email
+from app.services.email_service import (
+    extract_thread_id_from_html,
+    get_received_email,
+    list_incoming_replies,
+    send_email,
+)
 from fastapi import HTTPException, status
 
 
@@ -88,12 +95,39 @@ class MonitoringService:
             )
 
         challenge = await MonitoringChallengesInteractor.create_challenge(user.id, employee_id, scenario_id)
-        send_email(employee.email, f"Start phishing awareness challenge for scenario {scenario.name}")
-        updated_challenge = await MonitoringChallengesInteractor.update_last_exchange_id(
-            challenge.id, hook_exchange.id
+        thread_id = str(uuid4())
+        try:
+            # Send hook email
+            send_email(employee.email, hook_exchange.subject, hook_exchange.body, hook_exchange.sender_email, thread_id)
+        # TODO: Discuss the need for the double exception
+        except HTTPException:
+            await MonitoringChallengesInteractor.delete_challenge(challenge.id)
+            raise
+        except Exception as exc:  # noqa: BLE001
+            await MonitoringChallengesInteractor.delete_challenge(challenge.id)
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to send hook email."
+            ) from exc
+
+        sent_email = await MonitoringExchangesInteractor.create_email_in_db(
+            EmailCreate(
+                scenario_id=hook_exchange.scenario_id,
+                role=EmailRole.AI,
+                target_id=employee_id,
+                previous_email=hook_exchange.id,
+                subject=hook_exchange.subject,
+                sender_email=hook_exchange.sender_email,
+                language=hook_exchange.language,
+                body=hook_exchange.body,
+                variables=hook_exchange.variables,
+                status=EmailStatus.SENT,
+                thread_id=thread_id,
+            )
         )
+        updated_challenge = await MonitoringChallengesInteractor.update_last_exchange_id(challenge.id, sent_email.id)
+        # TODO: Handle more gracefully this error, what if we can't update the challenge in the db ? Is it really bad ?
         if updated_challenge is None:
-            challenge.last_exchange_id = hook_exchange.id
+            challenge.last_exchange_id = sent_email.id
             return challenge
         return updated_challenge
 
@@ -132,6 +166,141 @@ class MonitoringService:
 
         exchanges.reverse()
         return ExchangesResponse(exchanges=exchanges)
+
+    @staticmethod
+    async def send_all_pending_emails(token: str) -> StatusResponse:
+        organization_id = MonitoringService._get_user_organization_id(token)
+        user_id = MonitoringService._get_current_member_user(token)
+        challenges = await MonitoringChallengesInteractor.list_challenges_for_user(user_id)
+        sent_count = 0
+
+        for challenge in challenges:
+            target_member = await OrgMembersInteractor.get_member(challenge.employee_id)
+            if target_member is None or target_member.organization_id != organization_id:
+                # We just skip and ignore the error, do we want that ?
+                continue
+
+            pending_emails = await MonitoringExchangesInteractor.list_emails_for_target(
+                challenge.scenario_id, challenge.employee_id, EmailStatus.PENDING
+            )
+            for email in pending_emails:
+                previous_email = None
+                if email.previous_email is not None:
+                    previous_email = await MonitoringExchangesInteractor.get_email(email.previous_email)
+
+                if previous_email is not None and previous_email.thread_id is not None:
+                    thread_id = previous_email.thread_id
+                else:
+                    thread_id = str(uuid4())
+
+                recipient_email = target_member.email
+                if previous_email is not None and previous_email.role == EmailRole.USER and previous_email.sender_email:
+                    recipient_email = previous_email.sender_email
+
+                subject = email.subject
+                if subject is None and previous_email is not None and previous_email.subject:
+                    subject = f"Re: {previous_email.subject}"
+
+                send_email(recipient_email, subject, email.body, email.sender_email, thread_id)
+                # Update status (and eventually thread_id)
+                await MonitoringExchangesInteractor.update_email_send_info(email.id, thread_id, EmailStatus.SENT)
+                sent_count += 1
+
+        return StatusResponse(status="ok", message=f"Sent {sent_count} pending emails.")
+
+
+    @staticmethod
+    async def retrieve_answers(token: str) -> StatusResponse:
+        organization_id = MonitoringService._get_user_organization_id(token)
+        stored_count = 0
+        after: str | None = None
+
+        while True:
+            page = list_incoming_replies(after=after)
+            replies: list[dict] = page.get("data", None)
+            has_more = page.get("has_more", False)
+
+            if not replies:
+                break
+
+            for reply in replies:
+                email_id = reply.get("id", None)
+                inbound_uuid = UUID(str(email_id))
+                # TODO: Not to overwhelm the db with queries, store locally the last recieved email's uuid.
+                # Fetch it in supabase, ordering recieved emails by creation date, taking the last one.
+                existing = await MonitoringExchangesInteractor.get_email(inbound_uuid)
+
+                # Skip if email is already in the db
+                if existing is not None:
+                    continue
+
+                detailed_reply = get_received_email(email_id=email_id)
+
+                thread_id = extract_thread_id_from_html(detailed_reply.get("html", None))
+                thread_id = str(thread_id).strip()
+
+                created_at_raw = detailed_reply.get("created_at", None)
+                try:
+                    created_at_dt = datetime.fromisoformat(str(created_at_raw).replace("Z", "+00:00"))
+                except ValueError:
+                    created_at_dt = None
+
+                if thread_id and created_at_dt:
+                    previous_email = await MonitoringExchangesInteractor.get_latest_by_thread_before(
+                        thread_id, created_at_dt
+                    )
+                else:
+                    previous_email = None
+
+                if previous_email is None:
+                    # Skip, not an answer
+                    continue
+
+                scenario_id = previous_email.scenario_id
+
+                scenario = await MonitoringScenariosInteractor.get_scenario(organization_id, scenario_id)
+                if scenario is None:
+                    # Skip, couldn't find scenario the email is binded to
+                    continue
+
+                target_id = previous_email.target_id
+
+                if target_id is not None:
+                    target_member = await OrgMembersInteractor.get_member(target_id)
+                    if target_member is None or target_member.organization_id != organization_id:
+                        # Skip, wrong member
+                        continue
+
+                sender_email = detailed_reply.get("from", "")
+                body = ""
+                body = detailed_reply.get("html") or detailed_reply.get("text") or ""
+
+                new_email = EmailCreate(
+                    id=inbound_uuid,
+                    scenario_id=scenario_id,
+                    role=EmailRole.USER,
+                    target_id=target_id,
+                    previous_email=previous_email.id,
+                    subject=detailed_reply.get("subject", None),
+                    sender_email=sender_email or "",
+                    language=previous_email.language or "en", # This might be changed but for now set to en
+                    body=body,
+                    variables=None,
+                    status=EmailStatus.RECIEVED,
+                    thread_id=thread_id,
+                )
+
+                await MonitoringExchangesInteractor.create_email_in_db(new_email)
+                stored_count += 1
+
+            if not has_more:
+                break
+            last_id = replies[-1].get("id", None)
+            if last_id is None:
+                break
+            after = last_id
+
+        return StatusResponse(status="ok", message=f"Found {stored_count} received emails.")
 
     @staticmethod
     async def update_challenge_status(

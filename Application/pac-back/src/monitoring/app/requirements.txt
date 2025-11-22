@@ -4,3 +4,4 @@ supabase==2.24.0
 dotenv==0.9.9
 bcrypt==5.0.0
 requests==2.32.5
+resend==2.19.0

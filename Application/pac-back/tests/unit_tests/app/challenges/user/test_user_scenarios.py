@@ -75,7 +75,9 @@ def _hook_email_update_payload(case: str = "valid") -> dict:
     return payload
 
 
-def _create_owned_scenario(env, scenario_ids: set[str], payload_case: str = "valid", payload: dict | None = None) -> str:
+def _create_owned_scenario(
+    env, scenario_ids: set[str], payload_case: str = "valid", payload: dict | None = None
+) -> str:
     scenario_payload = payload or _scenario_payload(payload_case)
     response = UserChallengesInteractor.create_scenario(env.user_token, scenario_payload)
     assert response.status_code == 201

@@ -66,8 +66,19 @@ async def delete_challenge(
 
 @router.get("/get-exchanges", response_model=ExchangesResponse)
 async def get_exchanges(
-    challenge_id: UUID,
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    challenge_id: UUID, credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> ExchangesResponse:
     token = credentials.credentials
     return await MonitoringService.get_exchanges(token, challenge_id)
+
+
+@router.post("/send-all-pending", response_model=StatusResponse)
+async def send_all_pending_emails(credentials: HTTPAuthorizationCredentials = Depends(security)) -> StatusResponse:
+    token = credentials.credentials
+    return await MonitoringService.send_all_pending_emails(token)
+
+
+@router.get("/retrieve-answers", response_model=StatusResponse)
+async def retrieve_answers(credentials: HTTPAuthorizationCredentials = Depends(security)) -> StatusResponse:
+    token = credentials.credentials
+    return await MonitoringService.retrieve_answers(token)

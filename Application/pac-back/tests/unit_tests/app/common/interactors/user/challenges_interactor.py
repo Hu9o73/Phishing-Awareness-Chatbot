@@ -22,7 +22,9 @@ class UserChallengesInteractor:
         params: dict[str, str] = {}
         if member_id is not None:
             params["id"] = member_id
-        return requests.get(f"{UserChallengesInteractor._BASE_URL}/organization/members", headers=headers, params=params)
+        return requests.get(
+            f"{UserChallengesInteractor._BASE_URL}/organization/members", headers=headers, params=params
+        )
 
     @staticmethod
     def list_scenarios(token: str | None, scenario_id: str | None = None):
