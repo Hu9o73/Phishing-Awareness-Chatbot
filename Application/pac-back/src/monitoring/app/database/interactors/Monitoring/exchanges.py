@@ -115,3 +115,18 @@ class MonitoringExchangesInteractor:
         if not response.data:
             return None
         return Email(**response.data[0])
+
+    @staticmethod
+    async def get_latest_received_email() -> Email | None:
+        supabase: Client = get_db()
+        response = (
+            supabase.table("emails")
+            .select("*")
+            .eq("status", EmailStatus.RECIEVED.value)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if not response.data:
+            return None
+        return Email(**response.data[0])

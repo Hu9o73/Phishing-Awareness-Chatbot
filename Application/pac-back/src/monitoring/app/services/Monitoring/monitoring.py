@@ -214,6 +214,9 @@ class MonitoringService:
         organization_id = MonitoringService._get_user_organization_id(token)
         stored_count = 0
         after: str | None = None
+        latest_received = await MonitoringExchangesInteractor.get_latest_received_email()
+        last_received_uuid = latest_received.id if latest_received else None
+        reached_known_email = False
 
         while True:
             page = list_incoming_replies(after=after)
@@ -226,13 +229,9 @@ class MonitoringService:
             for reply in replies:
                 email_id = reply.get("id", None)
                 inbound_uuid = UUID(str(email_id))
-                # TODO: Not to overwhelm the db with queries, store locally the last recieved email's uuid.
-                # Fetch it in supabase, ordering recieved emails by creation date, taking the last one.
-                existing = await MonitoringExchangesInteractor.get_email(inbound_uuid)
-
-                # Skip if email is already in the db
-                if existing is not None:
-                    continue
+                if last_received_uuid is not None and inbound_uuid == last_received_uuid:
+                    reached_known_email = True
+                    break
 
                 detailed_reply = get_received_email(email_id=email_id)
 
@@ -292,6 +291,9 @@ class MonitoringService:
 
                 await MonitoringExchangesInteractor.create_email_in_db(new_email)
                 stored_count += 1
+
+            if reached_known_email:
+                break
 
             if not has_more:
                 break
