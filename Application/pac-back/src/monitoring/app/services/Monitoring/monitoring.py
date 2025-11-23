@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
 from app.database.interactors.Base.org_members import OrgMembersInteractor
@@ -12,13 +13,20 @@ from app.models.base_models import (
     ChallengeStatusResponse,
     ChallengeStatusUpdate,
     Email,
+    EmailCreate,
+    ExchangesCountResponse,
     ExchangesResponse,
     PublicUserModel,
     StatusResponse,
 )
-from app.models.enum_models import ChallengeStatus, ChannelEnum, EmailRole, RoleEnum
+from app.models.enum_models import ChallengeStatus, ChannelEnum, EmailRole, EmailStatus, RoleEnum
 from app.services.Base.authentication import AuthenticationService
-from app.services.email_service import send_email
+from app.services.email_service import (
+    extract_challenge_id_from_html,
+    get_received_email,
+    list_incoming_replies,
+    send_email,
+)
 from fastapi import HTTPException, status
 
 
@@ -88,12 +96,39 @@ class MonitoringService:
             )
 
         challenge = await MonitoringChallengesInteractor.create_challenge(user.id, employee_id, scenario_id)
-        send_email(employee.email, f"Start phishing awareness challenge for scenario {scenario.name}")
-        updated_challenge = await MonitoringChallengesInteractor.update_last_exchange_id(
-            challenge.id, hook_exchange.id
+        challenge_id = str(challenge.id)
+        try:
+            # Send hook email
+            send_email(
+                employee.email, hook_exchange.subject, hook_exchange.body, hook_exchange.sender_email, challenge_id
+            )
+        # TODO: Discuss the need for the double exception
+        except HTTPException:
+            await MonitoringChallengesInteractor.delete_challenge(challenge.id)
+            raise
+        except Exception as exc:  # noqa: BLE001
+            await MonitoringChallengesInteractor.delete_challenge(challenge.id)
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+        sent_email = await MonitoringExchangesInteractor.create_email_in_db(
+            EmailCreate(
+                scenario_id=hook_exchange.scenario_id,
+                role=EmailRole.AI,
+                target_id=employee_id,
+                previous_email=hook_exchange.id,
+                subject=hook_exchange.subject,
+                sender_email=hook_exchange.sender_email,
+                language=hook_exchange.language,
+                body=hook_exchange.body,
+                variables=hook_exchange.variables,
+                status=EmailStatus.SENT,
+                challenge_id=challenge.id,
+            )
         )
+        updated_challenge = await MonitoringChallengesInteractor.update_last_exchange_id(challenge.id, sent_email.id)
+        # TODO: Handle more gracefully this error, what if we can't update the challenge in the db ? Is it really bad ?
         if updated_challenge is None:
-            challenge.last_exchange_id = hook_exchange.id
+            challenge.last_exchange_id = sent_email.id
             return challenge
         return updated_challenge
 
@@ -132,6 +167,175 @@ class MonitoringService:
 
         exchanges.reverse()
         return ExchangesResponse(exchanges=exchanges)
+
+    @staticmethod
+    async def get_exchanges_count(token: str, challenge_id: UUID) -> ExchangesCountResponse:
+        challenge = await MonitoringService._get_challenge_for_org(token, challenge_id)
+        if challenge.channel != ChannelEnum.EMAIL:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported channel for exchanges.")
+        count = await MonitoringExchangesInteractor.count_emails_for_challenge(challenge.id)
+        return ExchangesCountResponse(count=count)
+
+    @staticmethod
+    async def get_pending_email_count_for_user(token: str, user_id: UUID) -> ExchangesCountResponse:
+        user = MonitoringService._get_current_member_user(token)
+        if user.id is None:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Invalid user data received from authentication service.",
+            )
+        if user.id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Users can only query their own pending emails."
+            )
+
+        challenges = await MonitoringChallengesInteractor.list_challenges_for_user(user.id)
+        pending_count = 0
+        for challenge in challenges:
+            if challenge.channel != ChannelEnum.EMAIL:
+                continue
+            pending_count += await MonitoringExchangesInteractor.count_emails_for_challenge(
+                challenge.id, EmailStatus.PENDING
+            )
+
+        return ExchangesCountResponse(count=pending_count)
+
+    @staticmethod
+    async def send_all_pending_emails(token: str) -> StatusResponse:
+        organization_id = MonitoringService._get_user_organization_id(token)
+        user = MonitoringService._get_current_member_user(token)
+        challenges = await MonitoringChallengesInteractor.list_challenges_for_user(user.id)
+        sent_count = 0
+
+        for challenge in challenges:
+            target_member = await OrgMembersInteractor.get_member(challenge.employee_id)
+            if target_member is None or target_member.organization_id != organization_id:
+                # We just skip and ignore the error, do we want that ?
+                continue
+
+            pending_emails = await MonitoringExchangesInteractor.list_emails_for_target(
+                challenge.scenario_id, challenge.employee_id, EmailStatus.PENDING, challenge.id
+            )
+            for email in pending_emails:
+                previous_email = None
+                if email.previous_email is not None:
+                    previous_email = await MonitoringExchangesInteractor.get_email(email.previous_email)
+
+                if previous_email is not None and previous_email.challenge_id is not None:
+                    challenge_id = str(previous_email.challenge_id)
+                else:
+                    challenge_id = str(challenge.id)
+
+                recipient_email = target_member.email
+                if previous_email is not None and previous_email.role == EmailRole.USER and previous_email.sender_email:
+                    recipient_email = previous_email.sender_email
+
+                subject = email.subject
+                if subject is None and previous_email is not None and previous_email.subject:
+                    subject = f"Re: {previous_email.subject}"
+
+                send_email(recipient_email, subject, email.body, email.sender_email, challenge_id)
+                # Update status (and eventually challenge_id)
+                await MonitoringExchangesInteractor.update_email_send_info(email.id, UUID(challenge_id), EmailStatus.SENT)
+                sent_count += 1
+
+        return StatusResponse(status="ok", message=f"Sent {sent_count} pending emails.")
+
+
+    @staticmethod
+    async def retrieve_answers(token: str) -> StatusResponse:
+        organization_id = MonitoringService._get_user_organization_id(token)
+        stored_count = 0
+        after: str | None = None
+        latest_received = await MonitoringExchangesInteractor.get_latest_received_email()
+        last_received_uuid = latest_received.id if latest_received else None
+        reached_known_email = False
+
+        while True:
+            page = list_incoming_replies(after=after)
+            replies: list[dict] = page.get("data", None)
+            has_more = page.get("has_more", False)
+
+            if not replies:
+                break
+
+            for reply in replies:
+                email_id = reply.get("id", None)
+                inbound_uuid = UUID(str(email_id))
+                if last_received_uuid is not None and inbound_uuid == last_received_uuid:
+                    reached_known_email = True
+                    break
+
+                detailed_reply = get_received_email(email_id=email_id)
+
+                challenge_id = extract_challenge_id_from_html(detailed_reply.get("html", None))
+                challenge_id = str(challenge_id).strip() if challenge_id else None
+
+                created_at_raw = detailed_reply.get("created_at", None)
+                try:
+                    created_at_dt = datetime.fromisoformat(str(created_at_raw).replace("Z", "+00:00"))
+                except ValueError:
+                    created_at_dt = None
+
+                if challenge_id and created_at_dt:
+                    previous_email = await MonitoringExchangesInteractor.get_latest_by_challenge_before(
+                        UUID(challenge_id), created_at_dt
+                    )
+                else:
+                    previous_email = None
+
+                if previous_email is None:
+                    # Skip, not an answer
+                    continue
+
+                scenario_id = previous_email.scenario_id
+
+                scenario = await MonitoringScenariosInteractor.get_scenario(organization_id, scenario_id)
+                if scenario is None:
+                    # Skip, couldn't find scenario the email is binded to
+                    continue
+
+                target_id = previous_email.target_id
+
+                if target_id is not None:
+                    target_member = await OrgMembersInteractor.get_member(target_id)
+                    if target_member is None or target_member.organization_id != organization_id:
+                        # Skip, wrong member
+                        continue
+
+                sender_email = detailed_reply.get("from", "")
+                body = ""
+                body = detailed_reply.get("html") or detailed_reply.get("text") or ""
+
+                new_email = EmailCreate(
+                    id=inbound_uuid,
+                    scenario_id=scenario_id,
+                    role=EmailRole.USER,
+                    target_id=target_id,
+                    previous_email=previous_email.id,
+                    subject=detailed_reply.get("subject", None),
+                    sender_email=sender_email or "",
+                    language=previous_email.language or "en", # This might be changed but for now set to en
+                    body=body,
+                    variables=None,
+                    status=EmailStatus.RECIEVED,
+                    challenge_id=previous_email.challenge_id,
+                )
+
+                await MonitoringExchangesInteractor.create_email_in_db(new_email)
+                stored_count += 1
+
+            if reached_known_email:
+                break
+
+            if not has_more:
+                break
+            last_id = replies[-1].get("id", None)
+            if last_id is None:
+                break
+            after = last_id
+
+        return StatusResponse(status="ok", message=f"Found {stored_count} received emails.")
 
     @staticmethod
     async def update_challenge_status(
@@ -181,6 +385,7 @@ class MonitoringService:
                 detail="Only completed challenges can be deleted.",
             )
 
+        await MonitoringExchangesInteractor.delete_emails_for_challenge(challenge.id)
         deleted = await MonitoringChallengesInteractor.delete_challenge(challenge.id)
         if not deleted:
             raise HTTPException(

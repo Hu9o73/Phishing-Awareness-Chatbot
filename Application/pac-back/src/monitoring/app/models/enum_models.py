@@ -27,3 +27,9 @@ class EmailRole(str, Enum):
     HOOK = "HOOK"
     USER = "USER"
     AI = "AI"
+
+
+class EmailStatus(str, Enum):
+    PENDING = "PENDING"
+    SENT = "SENT"
+    RECIEVED = "RECIEVED"

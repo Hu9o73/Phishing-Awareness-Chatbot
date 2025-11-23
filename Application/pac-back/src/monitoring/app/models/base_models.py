@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from app.models.enum_models import ChallengeStatus, ChannelEnum, Complexity, EmailRole, RoleEnum
+from app.models.enum_models import ChallengeStatus, ChannelEnum, Complexity, EmailRole, EmailStatus, RoleEnum
 from pydantic import BaseModel
 
 
@@ -91,9 +91,34 @@ class Email(BaseModel):
     language: str
     body: str | None = None
     variables: dict | None = None
+    status: EmailStatus | None = None
+    challenge_id: UUID | None = None
     updated_at: datetime | None = None
     created_at: datetime | None = None
 
 
+class EmailCreate(BaseModel):
+    id: UUID | None = None
+    scenario_id: UUID
+    role: EmailRole
+    sender_email: str
+    language: str
+    target_id: UUID | None = None
+    previous_email: UUID | None = None
+    subject: str | None = None
+    body: str | None = None
+    variables: dict | None = None
+    status: EmailStatus | None = None
+    challenge_id: UUID | None = None
+
+
+class SentEmailReference(BaseModel):
+    id: UUID
+    challenge_id: UUID
+
 class ExchangesResponse(BaseModel):
     exchanges: list[Email]
+
+
+class ExchangesCountResponse(BaseModel):
+    count: int

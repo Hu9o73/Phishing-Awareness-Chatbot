@@ -93,7 +93,6 @@ class UserScenarioService:
 
     @staticmethod
     async def create_hook_email(token: str, scenario_id: UUID, email_data: HookEmailCreate) -> Email:
-        scenario = await UserScenarioService._get_owned_scenario(token, scenario_id)
         existing_email = await UserEmailsInteractor.get_hook_email(scenario_id)
         if existing_email is not None:
             raise HTTPException(

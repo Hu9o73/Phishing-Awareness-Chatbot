@@ -156,6 +156,39 @@
           </div>
         </header>
 
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-phisward-fourth flex items-center justify-center text-phisward-secondary">
+              <i class="fas fa-envelope-open-text text-xl"></i>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Pending emails</p>
+              <p class="text-2xl font-semibold text-phisward-primary">
+                <span v-if="pendingEmailsLoading" class="text-base text-gray-500">
+                  <i class="fas fa-spinner fa-spin"></i>
+                  Loading...
+                </span>
+                <span v-else>{{ pendingEmailsCount }}</span>
+              </p>
+              <p v-if="pendingEmailsError" class="text-sm text-red-600">{{ pendingEmailsError }}</p>
+            </div>
+          </div>
+          <button
+            @click="sendAllPendingEmails"
+            class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-phisward-secondary to-phisward-third text-white rounded-lg font-semibold shadow hover:shadow-lg transition-all duration-200 disabled:opacity-50"
+            :disabled="sendingPending || pendingEmailsLoading || pendingEmailsCount === 0"
+          >
+            <span v-if="!sendingPending">
+              <i class="fas fa-paper-plane"></i>
+              Send all pending
+            </span>
+            <span v-else>
+              <i class="fas fa-spinner fa-spin"></i>
+              Sending...
+            </span>
+          </button>
+        </div>
+
         <div v-if="challengesError" class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
           <i class="fas fa-exclamation-triangle"></i>
           <span>{{ challengesError }}</span>
@@ -226,6 +259,10 @@
                 <span class="inline-flex items-center gap-1" v-if="challenge.updated_at && challenge.updated_at !== challenge.created_at">
                   <i class="fas fa-history"></i>
                   Updated {{ formatDate(challenge.updated_at) }}
+                </span>
+                <span class="inline-flex items-center gap-1">
+                  <i class="fas fa-envelope"></i>
+                  Exchanges: {{ challengeExchangeCounts[challenge.id] ?? '—' }}
                 </span>
               </div>
             </div>
@@ -692,10 +729,15 @@ const challengesError = ref('')
 const challengesSuccess = ref('')
 const challengeStatusFilter = ref('ALL')
 const deletingChallengeId = ref('')
+const pendingEmailsCount = ref(0)
+const pendingEmailsLoading = ref(false)
+const pendingEmailsError = ref('')
+const sendingPending = ref(false)
 const showStartChallengeModal = ref(false)
 const showStatusModal = ref(false)
 const startChallengeMember = ref(null)
 const statusModalChallenge = ref(null)
+const challengeExchangeCounts = ref({})
 
 const memberCache = ref({})
 const scenarioCache = ref({})
@@ -783,6 +825,23 @@ const extractErrorMessage = async (response, fallback) => {
     // ignore parsing errors
   }
   return fallback
+}
+
+const getUserIdFromToken = () => {
+  const token = localStorage.getItem('user_jwt_token')
+  if (!token) {
+    return ''
+  }
+  const parts = token.split('.')
+  if (parts.length < 2) {
+    return ''
+  }
+  try {
+    const payload = JSON.parse(atob(parts[1]))
+    return payload?.user_id || ''
+  } catch (err) {
+    return ''
+  }
 }
 
 const cacheMembers = (members) => {
@@ -1385,9 +1444,80 @@ const preloadHookStatuses = async () => {
   await Promise.allSettled(scenarioIds.map((id) => checkScenarioHook(id)))
 }
 
+const fetchPendingEmailsCount = async () => {
+  const userId = getUserIdFromToken()
+  if (!userId) {
+    pendingEmailsError.value = 'Could not identify user. Please log in again.'
+    pendingEmailsCount.value = 0
+    return
+  }
+
+  pendingEmailsLoading.value = true
+  pendingEmailsError.value = ''
+
+  try {
+    const token = localStorage.getItem('user_jwt_token')
+    if (!token) {
+      throw new Error('Authentication token is missing. Please log in again.')
+    }
+
+    const response = await fetch(`/api/monitoring/pending-emails/count?user_id=${userId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    if (!response.ok) {
+      const message = await extractErrorMessage(response, 'Failed to load pending emails.')
+      throw new Error(message)
+    }
+
+    const data = await response.json()
+    pendingEmailsCount.value = typeof data?.count === 'number' ? data.count : 0
+  } catch (error) {
+    pendingEmailsError.value = error.message || 'Failed to load pending emails.'
+    pendingEmailsCount.value = 0
+  } finally {
+    pendingEmailsLoading.value = false
+  }
+}
+
+const fetchChallengeExchangeCounts = async (items) => {
+  challengeExchangeCounts.value = {}
+  if (!Array.isArray(items) || items.length === 0) {
+    return
+  }
+
+  const token = localStorage.getItem('user_jwt_token')
+  if (!token) {
+    pendingEmailsError.value = 'Authentication token is missing. Please log in again.'
+    return
+  }
+
+  const queries = items.map(async (challenge) => {
+    try {
+      const response = await fetch(`/api/monitoring/get-exchanges/count?challenge_id=${challenge.id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+      if (!response.ok) {
+        return
+      }
+      const data = await response.json()
+      challengeExchangeCounts.value[challenge.id] = typeof data?.count === 'number' ? data.count : 0
+    } catch (err) {
+      // skip failing counts to avoid blocking the rest
+    }
+  })
+
+  await Promise.allSettled(queries)
+}
+
 const fetchChallenges = async () => {
   challengesLoading.value = true
   challengesError.value = ''
+  pendingEmailsError.value = ''
 
   const params = new URLSearchParams()
   if (challengeStatusFilter.value !== 'ALL') {
@@ -1415,6 +1545,8 @@ const fetchChallenges = async () => {
     const data = await response.json()
     challenges.value = Array.isArray(data?.items) ? data.items : []
     await resolveChallengeDetails(challenges.value)
+    await fetchChallengeExchangeCounts(challenges.value)
+    await fetchPendingEmailsCount()
   } catch (error) {
     challengesError.value = error.message || 'Failed to load challenges.'
     challenges.value = []
@@ -1448,6 +1580,39 @@ const onChallengeStarted = async (challenge) => {
     } else {
       await fetchChallenges()
     }
+  }
+}
+
+const sendAllPendingEmails = async () => {
+  sendingPending.value = true
+  challengesError.value = ''
+  challengesSuccess.value = ''
+  pendingEmailsError.value = ''
+
+  try {
+    const token = localStorage.getItem('user_jwt_token')
+    if (!token) {
+      throw new Error('Authentication token is missing. Please log in again.')
+    }
+
+    const response = await fetch('/api/monitoring/send-all-pending', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    if (!response.ok) {
+      const message = await extractErrorMessage(response, 'Failed to send pending emails.')
+      throw new Error(message)
+    }
+
+    challengesSuccess.value = 'Pending emails sent successfully.'
+    await Promise.all([fetchChallenges(), fetchPendingEmailsCount()])
+  } catch (error) {
+    challengesError.value = error.message || 'Failed to send pending emails.'
+  } finally {
+    sendingPending.value = false
   }
 }
 
