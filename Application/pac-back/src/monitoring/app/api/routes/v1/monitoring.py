@@ -5,6 +5,7 @@ from app.models.base_models import (
     ChallengeListResponse,
     ChallengeStatusResponse,
     ChallengeStatusUpdate,
+    ExchangesCountResponse,
     ExchangesResponse,
     StatusResponse,
 )
@@ -70,6 +71,14 @@ async def get_exchanges(
 ) -> ExchangesResponse:
     token = credentials.credentials
     return await MonitoringService.get_exchanges(token, challenge_id)
+
+
+@router.get("/get-exchanges/count", response_model=ExchangesCountResponse)
+async def get_exchanges_count(
+    challenge_id: UUID, credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> ExchangesCountResponse:
+    token = credentials.credentials
+    return await MonitoringService.get_exchanges_count(token, challenge_id)
 
 
 @router.post("/send-all-pending", response_model=StatusResponse)

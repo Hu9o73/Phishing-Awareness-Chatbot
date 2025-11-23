@@ -14,6 +14,7 @@ from app.models.base_models import (
     ChallengeStatusUpdate,
     Email,
     EmailCreate,
+    ExchangesCountResponse,
     ExchangesResponse,
     PublicUserModel,
     StatusResponse,
@@ -168,6 +169,14 @@ class MonitoringService:
 
         exchanges.reverse()
         return ExchangesResponse(exchanges=exchanges)
+
+    @staticmethod
+    async def get_exchanges_count(token: str, challenge_id: UUID) -> ExchangesCountResponse:
+        challenge = await MonitoringService._get_challenge_for_org(token, challenge_id)
+        if challenge.channel != ChannelEnum.EMAIL:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported channel for exchanges.")
+        count = await MonitoringExchangesInteractor.count_emails_for_challenge(challenge.id)
+        return ExchangesCountResponse(count=count)
 
     @staticmethod
     async def send_all_pending_emails(token: str) -> StatusResponse:

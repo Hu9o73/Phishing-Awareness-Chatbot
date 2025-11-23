@@ -118,3 +118,7 @@ class SentEmailReference(BaseModel):
 
 class ExchangesResponse(BaseModel):
     exchanges: list[Email]
+
+
+class ExchangesCountResponse(BaseModel):
+    count: int
