@@ -108,9 +108,7 @@ class MonitoringService:
             raise
         except Exception as exc:  # noqa: BLE001
             await MonitoringChallengesInteractor.delete_challenge(challenge.id)
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to send hook email."
-            ) from exc
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
 
         sent_email = await MonitoringExchangesInteractor.create_email_in_db(
             EmailCreate(

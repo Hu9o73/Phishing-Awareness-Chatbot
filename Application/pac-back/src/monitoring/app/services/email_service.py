@@ -53,20 +53,14 @@ def send_email(
     }
     try:
         response = resend.Emails.send(params)
-        sent_id = getattr(response, "id", None)
+        sent_id = response.get("id", None)
     except resend_exceptions.ResendError as exc:
         # Once domains are managed by the PAC, remove and handle the domain error
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=str(exc),
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to send email via Resend.",
-        ) from exc
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to send email via Resend.") from exc
 
-    return SentEmailReference(UUID(sent_id), UUID(challenge_id))
+    return SentEmailReference(id=UUID(sent_id), challenge_id=UUID(challenge_id))
 
 
 def list_incoming_replies(after: str | None = None) -> dict[str, Any]:
