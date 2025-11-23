@@ -21,8 +21,8 @@ def _configure_resend() -> None:
     resend.api_key = api_key
 
 
-def _inject_thread_marker(html: str | None, thread_id: str) -> str:
-    marker = f'data-pac-thread-id="{thread_id}"'
+def _inject_challenge_marker(html: str | None, challenge_id: str) -> str:
+    marker = f'data-pac-challenge-id="{challenge_id}"'
     if html and marker in html:
         return html
     hidden_span = (
@@ -31,20 +31,20 @@ def _inject_thread_marker(html: str | None, thread_id: str) -> str:
     return (html or "") + hidden_span
 
 
-def extract_thread_id_from_html(html: str | None) -> str | None:
+def extract_challenge_id_from_html(html: str | None) -> str | None:
     if not html:
         return None
-    match = re.search(r'data-pac-thread-id="([^"]+)"', html)
+    match = re.search(r'data-pac-challenge-id="([^"]+)"', html)
     if match:
         return match.group(1).strip()
     return None
 
 
 def send_email(
-    target_email: str, subject: str | None, body: str | None, sender_email: str, thread_id: str
+    target_email: str, subject: str | None, body: str | None, sender_email: str, challenge_id: str
 ) -> SentEmailReference | None:
     _configure_resend()
-    html = _inject_thread_marker(body, thread_id)
+    html = _inject_challenge_marker(body, challenge_id)
     params: dict[str, Any] = {
         "from": "hugo@onboarding.phishward.com", # To be replaced by sender_email in the future
         "to": [target_email],
@@ -66,7 +66,7 @@ def send_email(
             detail="Failed to send email via Resend.",
         ) from exc
 
-    return SentEmailReference(UUID(sent_id), UUID(thread_id))
+    return SentEmailReference(UUID(sent_id), UUID(challenge_id))
 
 
 def list_incoming_replies(after: str | None = None) -> dict[str, Any]:

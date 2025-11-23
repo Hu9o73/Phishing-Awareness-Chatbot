@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from app.database.interactors.Base.org_members import OrgMembersInteractor
 from app.database.interactors.Monitoring.challenges import MonitoringChallengesInteractor
@@ -21,7 +21,7 @@ from app.models.base_models import (
 from app.models.enum_models import ChallengeStatus, ChannelEnum, EmailRole, EmailStatus, RoleEnum
 from app.services.Base.authentication import AuthenticationService
 from app.services.email_service import (
-    extract_thread_id_from_html,
+    extract_challenge_id_from_html,
     get_received_email,
     list_incoming_replies,
     send_email,
@@ -95,10 +95,12 @@ class MonitoringService:
             )
 
         challenge = await MonitoringChallengesInteractor.create_challenge(user.id, employee_id, scenario_id)
-        thread_id = str(uuid4())
+        challenge_id = str(challenge.id)
         try:
             # Send hook email
-            send_email(employee.email, hook_exchange.subject, hook_exchange.body, hook_exchange.sender_email, thread_id)
+            send_email(
+                employee.email, hook_exchange.subject, hook_exchange.body, hook_exchange.sender_email, challenge_id
+            )
         # TODO: Discuss the need for the double exception
         except HTTPException:
             await MonitoringChallengesInteractor.delete_challenge(challenge.id)
@@ -121,7 +123,7 @@ class MonitoringService:
                 body=hook_exchange.body,
                 variables=hook_exchange.variables,
                 status=EmailStatus.SENT,
-                thread_id=thread_id,
+                challenge_id=challenge.id,
             )
         )
         updated_challenge = await MonitoringChallengesInteractor.update_last_exchange_id(challenge.id, sent_email.id)
@@ -181,17 +183,17 @@ class MonitoringService:
                 continue
 
             pending_emails = await MonitoringExchangesInteractor.list_emails_for_target(
-                challenge.scenario_id, challenge.employee_id, EmailStatus.PENDING
+                challenge.scenario_id, challenge.employee_id, EmailStatus.PENDING, challenge.id
             )
             for email in pending_emails:
                 previous_email = None
                 if email.previous_email is not None:
                     previous_email = await MonitoringExchangesInteractor.get_email(email.previous_email)
 
-                if previous_email is not None and previous_email.thread_id is not None:
-                    thread_id = previous_email.thread_id
+                if previous_email is not None and previous_email.challenge_id is not None:
+                    challenge_id = str(previous_email.challenge_id)
                 else:
-                    thread_id = str(uuid4())
+                    challenge_id = str(challenge.id)
 
                 recipient_email = target_member.email
                 if previous_email is not None and previous_email.role == EmailRole.USER and previous_email.sender_email:
@@ -201,9 +203,9 @@ class MonitoringService:
                 if subject is None and previous_email is not None and previous_email.subject:
                     subject = f"Re: {previous_email.subject}"
 
-                send_email(recipient_email, subject, email.body, email.sender_email, thread_id)
-                # Update status (and eventually thread_id)
-                await MonitoringExchangesInteractor.update_email_send_info(email.id, thread_id, EmailStatus.SENT)
+                send_email(recipient_email, subject, email.body, email.sender_email, challenge_id)
+                # Update status (and eventually challenge_id)
+                await MonitoringExchangesInteractor.update_email_send_info(email.id, UUID(challenge_id), EmailStatus.SENT)
                 sent_count += 1
 
         return StatusResponse(status="ok", message=f"Sent {sent_count} pending emails.")
@@ -235,8 +237,8 @@ class MonitoringService:
 
                 detailed_reply = get_received_email(email_id=email_id)
 
-                thread_id = extract_thread_id_from_html(detailed_reply.get("html", None))
-                thread_id = str(thread_id).strip()
+                challenge_id = extract_challenge_id_from_html(detailed_reply.get("html", None))
+                challenge_id = str(challenge_id).strip() if challenge_id else None
 
                 created_at_raw = detailed_reply.get("created_at", None)
                 try:
@@ -244,9 +246,9 @@ class MonitoringService:
                 except ValueError:
                     created_at_dt = None
 
-                if thread_id and created_at_dt:
-                    previous_email = await MonitoringExchangesInteractor.get_latest_by_thread_before(
-                        thread_id, created_at_dt
+                if challenge_id and created_at_dt:
+                    previous_email = await MonitoringExchangesInteractor.get_latest_by_challenge_before(
+                        UUID(challenge_id), created_at_dt
                     )
                 else:
                     previous_email = None
@@ -286,7 +288,7 @@ class MonitoringService:
                     body=body,
                     variables=None,
                     status=EmailStatus.RECIEVED,
-                    thread_id=thread_id,
+                    challenge_id=previous_email.challenge_id,
                 )
 
                 await MonitoringExchangesInteractor.create_email_in_db(new_email)

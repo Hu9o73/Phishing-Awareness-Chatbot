@@ -92,7 +92,7 @@ class Email(BaseModel):
     body: str | None = None
     variables: dict | None = None
     status: EmailStatus | None = None
-    thread_id: str | None = None
+    challenge_id: UUID | None = None
     updated_at: datetime | None = None
     created_at: datetime | None = None
 
@@ -109,12 +109,12 @@ class EmailCreate(BaseModel):
     body: str | None = None
     variables: dict | None = None
     status: EmailStatus | None = None
-    thread_id: str | None = None
+    challenge_id: UUID | None = None
 
 
 class SentEmailReference(BaseModel):
     id: UUID
-    thread_id: UUID
+    challenge_id: UUID
 
 class ExchangesResponse(BaseModel):
     exchanges: list[Email]

@@ -34,7 +34,7 @@ class MonitoringExchangesInteractor:
     @staticmethod
     @staticmethod
     async def list_emails_for_target(
-        scenario_id: UUID, target_id: UUID, status: EmailStatus | None = None
+        scenario_id: UUID, target_id: UUID, status: EmailStatus | None = None, challenge_id: UUID | None = None
     ) -> list[Email]:
         supabase: Client = get_db()
         query = (
@@ -46,6 +46,8 @@ class MonitoringExchangesInteractor:
         )
         if status is not None:
             query = query.eq("status", status.value)
+        if challenge_id is not None:
+            query = query.eq("challenge_id", str(challenge_id))
         response = query.execute()
         if not response.data:
             return []
@@ -81,8 +83,8 @@ class MonitoringExchangesInteractor:
             payload["previous_email"] = str(email_data.previous_email)
         if email_data.status is not None:
             payload["status"] = email_data.status.value
-        if email_data.thread_id is not None:
-            payload["thread_id"] = email_data.thread_id
+        if email_data.challenge_id is not None:
+            payload["challenge_id"] = str(email_data.challenge_id)
 
         response = supabase.table("emails").upsert(payload).execute()
         if not response.data:
@@ -90,23 +92,23 @@ class MonitoringExchangesInteractor:
         return Email(**response.data[0])
 
     @staticmethod
-    async def update_email_send_info(exchange_id: UUID, thread_id: str | None, status: EmailStatus) -> Email | None:
+    async def update_email_send_info(exchange_id: UUID, challenge_id: UUID | None, status: EmailStatus) -> Email | None:
         supabase: Client = get_db()
         update_payload = {"status": status.value, "updated_at": datetime.now(timezone.utc).isoformat()}
-        if thread_id:
-            update_payload["thread_id"] = thread_id
+        if challenge_id:
+            update_payload["challenge_id"] = str(challenge_id)
         response = (supabase.table("emails").update(update_payload).eq("id", str(exchange_id)).execute())
         if not response.data:
             return None
         return Email(**response.data[0])
 
     @staticmethod
-    async def get_latest_by_thread_before(thread_id: str, before: datetime) -> Email | None:
+    async def get_latest_by_challenge_before(challenge_id: UUID, before: datetime) -> Email | None:
         supabase: Client = get_db()
         response = (
             supabase.table("emails")
             .select("*")
-            .eq("thread_id", thread_id)
+            .eq("challenge_id", str(challenge_id))
             .lte("created_at", before.isoformat())
             .order("created_at", desc=True)
             .limit(1)
