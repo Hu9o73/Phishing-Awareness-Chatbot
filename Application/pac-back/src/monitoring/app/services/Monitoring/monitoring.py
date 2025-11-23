@@ -179,6 +179,30 @@ class MonitoringService:
         return ExchangesCountResponse(count=count)
 
     @staticmethod
+    async def get_pending_email_count_for_user(token: str, user_id: UUID) -> ExchangesCountResponse:
+        user = MonitoringService._get_current_member_user(token)
+        if user.id is None:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Invalid user data received from authentication service.",
+            )
+        if user.id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Users can only query their own pending emails."
+            )
+
+        challenges = await MonitoringChallengesInteractor.list_challenges_for_user(user.id)
+        pending_count = 0
+        for challenge in challenges:
+            if challenge.channel != ChannelEnum.EMAIL:
+                continue
+            pending_count += await MonitoringExchangesInteractor.count_emails_for_challenge(
+                challenge.id, EmailStatus.PENDING
+            )
+
+        return ExchangesCountResponse(count=pending_count)
+
+    @staticmethod
     async def send_all_pending_emails(token: str) -> StatusResponse:
         organization_id = MonitoringService._get_user_organization_id(token)
         user_id = MonitoringService._get_current_member_user(token)

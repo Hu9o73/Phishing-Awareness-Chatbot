@@ -81,6 +81,14 @@ async def get_exchanges_count(
     return await MonitoringService.get_exchanges_count(token, challenge_id)
 
 
+@router.get("/pending-emails/count", response_model=ExchangesCountResponse)
+async def get_pending_emails_count(
+    user_id: UUID, credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> ExchangesCountResponse:
+    token = credentials.credentials
+    return await MonitoringService.get_pending_email_count_for_user(token, user_id)
+
+
 @router.post("/send-all-pending", response_model=StatusResponse)
 async def send_all_pending_emails(credentials: HTTPAuthorizationCredentials = Depends(security)) -> StatusResponse:
     token = credentials.credentials

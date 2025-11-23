@@ -139,9 +139,10 @@ class MonitoringExchangesInteractor:
         supabase.table("emails").delete().eq("challenge_id", str(challenge_id)).execute()
 
     @staticmethod
-    async def count_emails_for_challenge(challenge_id: UUID) -> int:
+    async def count_emails_for_challenge(challenge_id: UUID, status: EmailStatus | None = None) -> int:
         supabase: Client = get_db()
-        response = (
-            supabase.table("emails").select("id", count="exact").eq("challenge_id", str(challenge_id)).execute()
-        )
+        query = supabase.table("emails").select("id", count="exact").eq("challenge_id", str(challenge_id))
+        if status is not None:
+            query = query.eq("status", status.value)
+        response = query.execute()
         return response.count or 0
