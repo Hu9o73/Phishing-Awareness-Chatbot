@@ -354,6 +354,7 @@ class MonitoringService:
                 detail="Only completed challenges can be deleted.",
             )
 
+        await MonitoringExchangesInteractor.delete_emails_for_challenge(challenge.id)
         deleted = await MonitoringChallengesInteractor.delete_challenge(challenge.id)
         if not deleted:
             raise HTTPException(

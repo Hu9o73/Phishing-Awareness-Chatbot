@@ -88,7 +88,6 @@ def get_received_email(email_id: str) -> dict[str, Any]:
     _configure_resend()
     try:
         response = resend.Emails.Receiving.get(email_id=email_id)
-        print("RESPONSE ", response)
     except resend_exceptions.ResendError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001

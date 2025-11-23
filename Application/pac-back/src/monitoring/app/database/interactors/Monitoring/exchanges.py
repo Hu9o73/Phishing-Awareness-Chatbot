@@ -132,3 +132,8 @@ class MonitoringExchangesInteractor:
         if not response.data:
             return None
         return Email(**response.data[0])
+
+    @staticmethod
+    async def delete_emails_for_challenge(challenge_id: UUID) -> None:
+        supabase: Client = get_db()
+        supabase.table("emails").delete().eq("challenge_id", str(challenge_id)).execute()
