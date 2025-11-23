@@ -203,8 +203,8 @@ class MonitoringService:
     @staticmethod
     async def send_all_pending_emails(token: str) -> StatusResponse:
         organization_id = MonitoringService._get_user_organization_id(token)
-        user_id = MonitoringService._get_current_member_user(token)
-        challenges = await MonitoringChallengesInteractor.list_challenges_for_user(user_id)
+        user = MonitoringService._get_current_member_user(token)
+        challenges = await MonitoringChallengesInteractor.list_challenges_for_user(user.id)
         sent_count = 0
 
         for challenge in challenges:
