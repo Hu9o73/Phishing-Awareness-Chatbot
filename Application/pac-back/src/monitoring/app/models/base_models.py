@@ -122,3 +122,7 @@ class ExchangesResponse(BaseModel):
 
 class ExchangesCountResponse(BaseModel):
     count: int
+
+
+class LastEmailStatusResponse(BaseModel):
+    status: EmailStatus | None

@@ -7,6 +7,7 @@ from app.models.base_models import (
     ChallengeStatusUpdate,
     ExchangesCountResponse,
     ExchangesResponse,
+    LastEmailStatusResponse,
     StatusResponse,
 )
 from app.models.enum_models import ChallengeStatus
@@ -99,3 +100,11 @@ async def send_all_pending_emails(credentials: HTTPAuthorizationCredentials = De
 async def retrieve_answers(credentials: HTTPAuthorizationCredentials = Depends(security)) -> StatusResponse:
     token = credentials.credentials
     return await MonitoringService.retrieve_answers(token)
+
+
+@router.get("/challenge-last-email-status", response_model=LastEmailStatusResponse)
+async def get_last_email_status(
+    challenge_id: UUID, credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> LastEmailStatusResponse:
+    token = credentials.credentials
+    return await MonitoringService.get_last_email_status(token, challenge_id)

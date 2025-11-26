@@ -15,11 +15,17 @@ class AgentBase(ABC):
         return []
 
     async def _create_openai_llm(self):
+        model = os.getenv("OPENAI_MODEL", "").strip()
+        api_key = os.getenv("OPENAI_API_KEY", "").strip()
+        if not model:
+            raise ValueError("OPENAI_MODEL is not configured.")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY is not configured.")
         return ChatOpenAI(
-            model=os.getenv("OPENAI_MODEL"),
+            model=model,
             temperature=0.7,
             top_p=0,
-            api_key=os.getenv("OPENAI_API_KEY"),
+            api_key=api_key,
         )
 
     @observe(as_type="generation")

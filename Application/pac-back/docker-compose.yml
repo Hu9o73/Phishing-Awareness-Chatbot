@@ -55,3 +55,23 @@ services:
       interval: 10s
       timeout: 2s
       retries: 5
+  pac-agentic:
+    build:
+      context: "./src/agentic"
+    container_name: "pac-agentic"
+    ports:
+      - "8004:8004"
+    env_file:
+      - ./envs/.env
+    command: ["fastapi", "run", "./app/Agentic.py", "--port", "8004"]
+    networks:
+      - pac-network
+    depends_on:
+      - pac-authentication
+      - pac-challenges
+      - pac-monitoring
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 10s
+      timeout: 2s
+      retries: 5
