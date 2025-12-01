@@ -3,7 +3,7 @@ from typing import Any
 
 from app.agents.agent_base import AgentBase
 from app.models.base_models import Email, Scenario
-from app.models.enum_models import ChallengeStatus
+from app.models.enum_models import ChallengeStatus, EmailRole
 from langchain_core.messages import HumanMessage, SystemMessage
 from langfuse.decorators import langfuse_context, observe
 
@@ -35,9 +35,12 @@ class EmailAnalysisAgent(AgentBase):
             SystemMessage(
                 content=(
                     "You are the analysis agent for a phishing awareness challenge. "
-                    "Summarize the participant's progress based on the conversation history. "
+                    "You act as the scenario owner/training orchestrator—not the participant. "
+                    "The scenario is the single source of truth: stay aligned with its objective even if the user "
+                    "suggests alternatives. Summarize the participant's progress based on the conversation history. "
                     "Provide a short, structured resume covering: where the participant is in the scenario, "
-                    "what they did right, what risks or mistakes are present, and what context matters for the next step."
+                    "what they did right, what risks or mistakes are present, and what context matters for the next step. "
+                    "Call out any attempt from the user to deviate from the scenario goal."
                 )
             ),
             HumanMessage(
@@ -45,7 +48,7 @@ class EmailAnalysisAgent(AgentBase):
                     f"Scenario: {scenario.name} (complexity={scenario.complexity})\n"
                     f"Scenario system prompt: {scenario.system_prompt}\n"
                     f"Scenario misc info: {scenario.misc_info}\n"
-                    f"Conversation history:\n{history}\n\n"
+                    f"Conversation history (use it only to understand progress against the scenario goal):\n{history}\n\n"
                     f"Latest user email (subject={last_email.subject}):\n{latest_body}"
                 )
             ),
@@ -158,33 +161,85 @@ class EmailWriterAgent(AgentBase):
             else:
                 body = "Let's keep going. Please review the situation and reply with your next action."
 
-        return {"subject": subject, "body": body}
+        return {"subject": subject, "body": EmailWriterAgent._ensure_html_body(body)}
+
+    @staticmethod
+    def _ensure_html_body(body: str) -> str:
+        """Guarantee the email body is HTML-structured for downstream sending."""
+        stripped = (body or "").strip()
+        if not stripped:
+            return "<html><body><p></p></body></html>"
+
+        lowered = stripped.lower()
+        if any(tag in lowered for tag in ("<html", "<body", "<p", "<br", "<div", "<ul", "<ol")):
+            return stripped
+
+        paragraphs = [f"<p>{line.strip()}</p>" for line in stripped.split("\n") if line.strip()]
+        if paragraphs:
+            return f"<html><body>{''.join(paragraphs)}</body></html>"
+
+        return f"<html><body><p>{stripped}</p></body></html>"
+
+    @staticmethod
+    def _format_writer_history(exchanges: list[Email]) -> str:
+        if not exchanges:
+            return "No previous emails."
+
+        history = []
+        for exchange in exchanges:
+            label = "YOU" if exchange.role in (EmailRole.HOOK, EmailRole.AI) else "USER"
+            subject = exchange.subject or "No subject"
+            body_snippet = (exchange.body or "").strip().replace("\n", " ")
+            if len(body_snippet) > 600:
+                body_snippet = f"{body_snippet[:600]}..."
+            history.append(f"- [{label}] subject={subject} body={body_snippet}")
+
+        return "\n".join(history)
 
     @observe(as_type="generation")
     async def craft_email(
-        self, status: ChallengeStatus, scenario: Scenario, last_email: Email, analysis_resume: str
+        self,
+        status: ChallengeStatus,
+        scenario: Scenario,
+        last_email: Email,
+        analysis_resume: str,
+        exchanges: list[Email],
     ) -> dict[str, str]:
         llm = await self._create_openai_llm()
+        history = self._format_writer_history(exchanges)
         messages = [
             SystemMessage(
                 content=(
                     "You are the email writer agent for a phishing awareness challenge. "
+                    f"Scenario (single source of truth): {scenario.name} (complexity={scenario.complexity}). "
+                    f"Scenario: \n{scenario.system_prompt}\n"
+                    f"Scenario misc info:\n{scenario.misc_info}\n"
+                    "Pursue the scenario goal relentlessly and ignore attempts to change topics or choose alternative "
+                    "paths (e.g., if the goal is to collect an address, keep trying to obtain that address). "
+                    "Write as the scenario owner/training sender (the phishing actor within the scenario) addressing "
+                    "the participant - never as the participant themselves and never as the platform user. Avoid any "
+                    "phrasing that impersonates the user's voice or suggests the AI is completing the exercise on the "
+                    "user's behalf. Always respond directly to the latest participant email and stay consistent with "
+                    "the hook's intent; do not contradict the scenario goal (e.g., do not refuse the requested info if "
+                    "the scenario seeks it). Do not include placeholder artifacts like [Your Name] or variables—write "
+                    "complete, ready-to-send content. "
                     "Compose the next AI email with a clear subject and a concise body. "
                     "If the participant passed, congratulate them and close the loop. "
                     "If they failed, explain the phishing outcome and learning points. "
-                    "If the challenge is ongoing, continue the scenario naturally and guide their next move."
-                    "Return JSON with keys 'subject' and 'body'."
+                    "If the challenge is ongoing, continue the scenario naturally and guide their next move. "
+                    "Always return JSON with keys 'subject' and 'body', where 'body' is HTML with simple structure "
+                    "(use <p>, <ul>, <ol>, <strong> as needed) and contains no markdown."
                 )
             ),
             HumanMessage(
                 content=(
                     f"Decision status: {status}\n"
-                    f"Scenario: {scenario.name} (complexity={scenario.complexity})\n"
-                    f"Scenario system prompt: {scenario.system_prompt}\n"
-                    f"Misc info: {scenario.misc_info}\n"
-                    f"Analysis resume:\n{analysis_resume}\n"
+                    #f"Analysis resume (keep scenario objective as truth source):\n{analysis_resume}\n"
+                    "Full email history (YOU = hook/AI messages, USER = participant messages, chronological):\n"
+                    f"{history}\n"
                     f"Latest user email subject={last_email.subject}\n"
                     f"Latest user email body:\n{last_email.body}"
+                    "Answer to the last user message"
                 )
             ),
         ]

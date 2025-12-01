@@ -9,7 +9,7 @@ from app.models.enum_models import ChallengeStatus, ChannelEnum, EmailRole, Emai
 from app.services.Base.authentication import AuthenticationService
 from app.services.Base.monitoring import MonitoringServiceClient
 from fastapi import HTTPException, status
-from langfuse.decorators import langfuse_context
+from langfuse.decorators import langfuse_context, observe
 
 
 class AgenticFlowService:
@@ -81,6 +81,7 @@ class AgenticFlowService:
         return challenge, scenario, last_email, previous_email, user
 
     @staticmethod
+    @observe(as_type="trace")
     async def run_email_flow(token: str, challenge_id: UUID) -> AgenticFlowResponse:
         challenge, scenario, last_email, previous_email, user = await AgenticFlowService._get_challenge_context(
             token, challenge_id
@@ -101,7 +102,9 @@ class AgenticFlowService:
         decision_status, decision_score = await decision_agent.decide(analysis_resume)
 
         writer_agent = EmailWriterAgent()
-        drafted_email = await writer_agent.craft_email(decision_status, scenario, last_email, analysis_resume)
+        drafted_email = await writer_agent.craft_email(
+            decision_status, scenario, last_email, analysis_resume, exchanges or []
+        )
 
         subject = drafted_email.get("subject") or (previous_email.subject if previous_email else last_email.subject)
         body = drafted_email.get("body") or "Thank you for your response. Expect further instructions soon."
