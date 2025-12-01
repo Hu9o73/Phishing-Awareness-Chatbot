@@ -275,7 +275,7 @@
             </div>
             <div class="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
               <button
-                v-if="challenge.status === 'ONGOING'"
+                v-if="canGenerateAiResponse(challenge)"
                 @click="generateAiResponse(challenge.id)"
                 class="flex-1 sm:flex-none px-4 py-2 bg-gradient-to-r from-phisward-secondary to-phisward-third text-white rounded-lg font-semibold shadow hover:shadow-lg transition-all duration-200 disabled:opacity-50"
                 :disabled="generatingAiChallengeId === challenge.id"
@@ -1600,10 +1600,14 @@ const fetchChallenges = async () => {
 
     const data = await response.json()
     challenges.value = Array.isArray(data?.items) ? data.items : []
-    await resolveChallengeDetails(challenges.value)
-    await fetchChallengeExchangeCounts(challenges.value)
-    await fetchChallengeEmailStatuses(challenges.value)
-    await fetchPendingEmailsCount()
+    challengesLoading.value = false
+
+    await Promise.allSettled([
+      resolveChallengeDetails(challenges.value),
+      fetchChallengeExchangeCounts(challenges.value),
+      fetchChallengeEmailStatuses(challenges.value),
+      fetchPendingEmailsCount()
+    ])
   } catch (error) {
     challengesError.value = error.message || 'Failed to load challenges.'
     challenges.value = []
@@ -1677,6 +1681,13 @@ const generateAiResponse = async (challengeId) => {
   if (!challengeId) {
     return
   }
+
+  const challenge = challenges.value.find((item) => item.id === challengeId)
+  if (!canGenerateAiResponse(challenge)) {
+    challengesError.value = 'AI responses can only be generated for ongoing challenges.'
+    return
+  }
+
   generatingAiChallengeId.value = challengeId
   challengesError.value = ''
   challengesSuccess.value = ''
@@ -1865,6 +1876,13 @@ const formatStatusLabel = (status) => {
     return ''
   }
   return status.charAt(0) + status.slice(1).toLowerCase()
+}
+
+const canGenerateAiResponse = (challenge) => {
+  if (!challenge) {
+    return false
+  }
+  return (challenge.status || '').toUpperCase() === 'ONGOING'
 }
 
 const formatEmailStatusLabel = (status) => {
