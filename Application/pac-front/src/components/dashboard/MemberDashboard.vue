@@ -242,6 +242,13 @@
                   <i class="fas fa-bullseye"></i>
                   {{ formatStatusLabel(challenge.status) }}
                 </span>
+                <span
+                  class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide"
+                  :class="emailStatusBadgeClass(challengeEmailStatuses[challenge.id])"
+                >
+                  <i class="fas fa-envelope-open"></i>
+                  {{ formatEmailStatusLabel(challengeEmailStatuses[challenge.id]) }}
+                </span>
               </div>
               <p class="text-sm text-gray-700">
                 Scenario:
@@ -267,6 +274,21 @@
               </div>
             </div>
             <div class="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+              <button
+                v-if="canGenerateAiResponse(challenge)"
+                @click="generateAiResponse(challenge.id)"
+                class="flex-1 sm:flex-none px-4 py-2 bg-gradient-to-r from-phisward-secondary to-phisward-third text-white rounded-lg font-semibold shadow hover:shadow-lg transition-all duration-200 disabled:opacity-50"
+                :disabled="generatingAiChallengeId === challenge.id"
+              >
+                <span v-if="generatingAiChallengeId !== challenge.id">
+                  <i class="fas fa-robot mr-2"></i>
+                  Generate AI Response
+                </span>
+                <span v-else>
+                  <i class="fas fa-spinner fa-spin mr-2"></i>
+                  Generating...
+                </span>
+              </button>
               <button
                 @click="openChallengeStatusModal(challenge)"
                 class="flex-1 sm:flex-none px-4 py-2 bg-phisward-primary text-white rounded-lg font-semibold hover:bg-phisward-primary/90 transition-all duration-200"
@@ -729,6 +751,7 @@ const challengesError = ref('')
 const challengesSuccess = ref('')
 const challengeStatusFilter = ref('ALL')
 const deletingChallengeId = ref('')
+const generatingAiChallengeId = ref('')
 const pendingEmailsCount = ref(0)
 const pendingEmailsLoading = ref(false)
 const pendingEmailsError = ref('')
@@ -738,6 +761,7 @@ const showStatusModal = ref(false)
 const startChallengeMember = ref(null)
 const statusModalChallenge = ref(null)
 const challengeExchangeCounts = ref({})
+const challengeEmailStatuses = ref({})
 
 const memberCache = ref({})
 const scenarioCache = ref({})
@@ -1514,6 +1538,38 @@ const fetchChallengeExchangeCounts = async (items) => {
   await Promise.allSettled(queries)
 }
 
+const fetchChallengeEmailStatuses = async (items) => {
+  challengeEmailStatuses.value = {}
+  if (!Array.isArray(items) || items.length === 0) {
+    return
+  }
+
+  const token = localStorage.getItem('user_jwt_token')
+  if (!token) {
+    challengesError.value = 'Authentication token is missing. Please log in again.'
+    return
+  }
+
+  const queries = items.map(async (challenge) => {
+    try {
+      const response = await fetch(`/api/monitoring/challenge-last-email-status?challenge_id=${challenge.id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+      if (!response.ok) {
+        return
+      }
+      const data = await response.json()
+      challengeEmailStatuses.value[challenge.id] = data?.status ?? null
+    } catch (err) {
+      // ignore failing status fetches
+    }
+  })
+
+  await Promise.allSettled(queries)
+}
+
 const fetchChallenges = async () => {
   challengesLoading.value = true
   challengesError.value = ''
@@ -1544,9 +1600,14 @@ const fetchChallenges = async () => {
 
     const data = await response.json()
     challenges.value = Array.isArray(data?.items) ? data.items : []
-    await resolveChallengeDetails(challenges.value)
-    await fetchChallengeExchangeCounts(challenges.value)
-    await fetchPendingEmailsCount()
+    challengesLoading.value = false
+
+    await Promise.allSettled([
+      resolveChallengeDetails(challenges.value),
+      fetchChallengeExchangeCounts(challenges.value),
+      fetchChallengeEmailStatuses(challenges.value),
+      fetchPendingEmailsCount()
+    ])
   } catch (error) {
     challengesError.value = error.message || 'Failed to load challenges.'
     challenges.value = []
@@ -1613,6 +1674,48 @@ const sendAllPendingEmails = async () => {
     challengesError.value = error.message || 'Failed to send pending emails.'
   } finally {
     sendingPending.value = false
+  }
+}
+
+const generateAiResponse = async (challengeId) => {
+  if (!challengeId) {
+    return
+  }
+
+  const challenge = challenges.value.find((item) => item.id === challengeId)
+  if (!canGenerateAiResponse(challenge)) {
+    challengesError.value = 'AI responses can only be generated for ongoing challenges.'
+    return
+  }
+
+  generatingAiChallengeId.value = challengeId
+  challengesError.value = ''
+  challengesSuccess.value = ''
+
+  try {
+    const token = localStorage.getItem('user_jwt_token')
+    if (!token) {
+      throw new Error('Authentication token is missing. Please log in again.')
+    }
+
+    const response = await fetch(`/api/agentic/email-agentic-flow?challenge_id=${challengeId}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    })
+
+    if (!response.ok) {
+      const message = await extractErrorMessage(response, 'Failed to generate AI response.')
+      throw new Error(message)
+    }
+
+    challengesSuccess.value = 'AI response generated successfully.'
+    await fetchChallenges()
+  } catch (error) {
+    challengesError.value = error.message || 'Failed to generate AI response.'
+  } finally {
+    generatingAiChallengeId.value = ''
   }
 }
 
@@ -1755,9 +1858,48 @@ const statusBadgeClass = (status) => {
   return 'bg-gray-100 text-gray-700'
 }
 
+const emailStatusBadgeClass = (status) => {
+  if (status === 'RECIEVED') {
+    return 'bg-green-100 text-green-700'
+  }
+  if (status === 'SENT') {
+    return 'bg-blue-100 text-blue-700'
+  }
+  if (status === 'PENDING') {
+    return 'bg-yellow-100 text-yellow-700'
+  }
+  return 'bg-gray-100 text-gray-700'
+}
+
 const formatStatusLabel = (status) => {
   if (!status) {
     return ''
+  }
+  return status.charAt(0) + status.slice(1).toLowerCase()
+}
+
+const canGenerateAiResponse = (challenge) => {
+  if (!challenge) {
+    return false
+  }
+  return (challenge.status || '').toUpperCase() === 'ONGOING'
+}
+
+const formatEmailStatusLabel = (status) => {
+  if (status === 'RECIEVED') {
+    return 'Received'
+  }
+  if (status === 'SENT') {
+    return 'Sent'
+  }
+  if (status === 'PENDING') {
+    return 'Pending'
+  }
+  if (status === null) {
+    return 'No email yet'
+  }
+  if (!status) {
+    return 'No email yet'
   }
   return status.charAt(0) + status.slice(1).toLowerCase()
 }

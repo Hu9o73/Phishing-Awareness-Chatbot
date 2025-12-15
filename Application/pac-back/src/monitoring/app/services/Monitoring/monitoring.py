@@ -16,6 +16,7 @@ from app.models.base_models import (
     EmailCreate,
     ExchangesCountResponse,
     ExchangesResponse,
+    LastEmailStatusResponse,
     PublicUserModel,
     StatusResponse,
 )
@@ -155,7 +156,7 @@ class MonitoringService:
             return ExchangesResponse(exchanges=[])
 
         exchanges: list[Email] = []
-        current = await MonitoringExchangesInteractor.get_exchange(challenge.last_exchange_id)
+        current = await MonitoringExchangesInteractor.get_email(challenge.last_exchange_id)
         if current is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exchange not found.")
 
@@ -163,7 +164,7 @@ class MonitoringService:
             exchanges.append(current)
             if current.role == EmailRole.HOOK or current.previous_email is None:
                 break
-            current = await MonitoringExchangesInteractor.get_exchange(current.previous_email)
+            current = await MonitoringExchangesInteractor.get_email(current.previous_email)
 
         exchanges.reverse()
         return ExchangesResponse(exchanges=exchanges)
@@ -175,6 +176,23 @@ class MonitoringService:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported channel for exchanges.")
         count = await MonitoringExchangesInteractor.count_emails_for_challenge(challenge.id)
         return ExchangesCountResponse(count=count)
+
+    @staticmethod
+    async def get_last_email_status(token: str, challenge_id: UUID) -> LastEmailStatusResponse:
+        challenge = await MonitoringService._get_challenge_for_org(token, challenge_id)
+        if challenge.channel != ChannelEnum.EMAIL:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unsupported channel for exchanges.",
+            )
+        if challenge.last_exchange_id is None:
+            return LastEmailStatusResponse(status=None)
+
+        last_email = await MonitoringExchangesInteractor.get_email(challenge.last_exchange_id)
+        if last_email is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exchange not found.")
+
+        return LastEmailStatusResponse(status=last_email.status)
 
     @staticmethod
     async def get_pending_email_count_for_user(token: str, user_id: UUID) -> ExchangesCountResponse:
@@ -322,7 +340,9 @@ class MonitoringService:
                     challenge_id=previous_email.challenge_id,
                 )
 
-                await MonitoringExchangesInteractor.create_email_in_db(new_email)
+                created_email = await MonitoringExchangesInteractor.create_email_in_db(new_email)
+                if created_email.challenge_id is not None:
+                    await MonitoringChallengesInteractor.update_last_exchange_id(created_email.challenge_id, created_email.id)
                 stored_count += 1
 
             if reached_known_email:
