@@ -95,6 +95,11 @@ class AgenticFlowResponse(BaseModel):
     score: int | None = None
 
 
+class HookEmailGenerationResponse(BaseModel):
+    subject: str | None = None
+    body: str
+
+
 class MessageModel(BaseModel):
     message: str
     created_at: datetime

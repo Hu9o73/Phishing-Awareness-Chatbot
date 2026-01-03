@@ -33,6 +33,14 @@ from fastapi import HTTPException, status
 
 class MonitoringService:
     @staticmethod
+    def _interpolate_hook_variables(text: str | None, first_name: str | None, last_name: str | None) -> str | None:
+        if text is None:
+            return None
+        return (
+            text.replace("{{first_name}}", first_name or "")
+            .replace("{{last_name}}", last_name or "")
+        )
+    @staticmethod
     def _get_user_organization_id(token: str):
         user = AuthenticationService.get_current_user(token)
         if user.organization_id is None:
@@ -98,11 +106,15 @@ class MonitoringService:
 
         challenge = await MonitoringChallengesInteractor.create_challenge(user.id, employee_id, scenario_id)
         challenge_id = str(challenge.id)
+        subject = MonitoringService._interpolate_hook_variables(
+            hook_exchange.subject, employee.first_name, employee.last_name
+        )
+        body = MonitoringService._interpolate_hook_variables(
+            hook_exchange.body, employee.first_name, employee.last_name
+        )
         try:
             # Send hook email
-            send_email(
-                employee.email, hook_exchange.subject, hook_exchange.body, hook_exchange.sender_email, challenge_id
-            )
+            send_email(employee.email, subject, body, hook_exchange.sender_email, challenge_id)
         # TODO: Discuss the need for the double exception
         except HTTPException:
             await MonitoringChallengesInteractor.delete_challenge(challenge.id)
@@ -117,10 +129,10 @@ class MonitoringService:
                 role=EmailRole.AI,
                 target_id=employee_id,
                 previous_email=hook_exchange.id,
-                subject=hook_exchange.subject,
+                subject=subject,
                 sender_email=hook_exchange.sender_email,
                 language=hook_exchange.language,
-                body=hook_exchange.body,
+                body=body,
                 variables=hook_exchange.variables,
                 status=EmailStatus.SENT,
                 challenge_id=challenge.id,

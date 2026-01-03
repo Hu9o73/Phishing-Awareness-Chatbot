@@ -96,6 +96,15 @@ async def delete_hook_email(
     return await UserScenarioService.delete_hook_email(token, scenario_id)
 
 
+@router.post("/generate-hook-email", response_model=Email)
+async def generate_hook_email(
+    scenario_id: UUID = Query(..., description="Identifier of the scenario to generate the hook email for."),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> Email:
+    token = credentials.credentials
+    return await UserScenarioService.generate_hook_email(token, scenario_id)
+
+
 @router.get("/scenarios/export")
 async def export_scenario(
     scenario_id: UUID = Query(..., description="Identifier of the scenario to export."),
