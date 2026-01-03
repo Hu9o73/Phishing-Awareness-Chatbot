@@ -106,3 +106,8 @@ class HookEmailUpdate(BaseModel):
     language: str | None = None
     body: str | None = None
     variables: dict | None = None
+
+
+class HookEmailGenerationResponse(BaseModel):
+    subject: str | None = None
+    body: str

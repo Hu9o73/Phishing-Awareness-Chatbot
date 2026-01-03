@@ -13,6 +13,7 @@ from app.models.base_models import (
     ScenarioUpdate,
     StatusResponse,
 )
+from app.services.Base.agentic import AgenticServiceClient
 from app.services.Base.authentication import AuthenticationService
 from fastapi import HTTPException, status
 
@@ -42,7 +43,9 @@ class UserScenarioService:
     @staticmethod
     async def create_scenario(token: str, scenario: ScenarioCreate) -> Scenario:
         organization_id = UserScenarioService._get_user_organization_id(token)
-        return await UserScenariosInteractor.create_scenario(organization_id, scenario)
+        created = await UserScenariosInteractor.create_scenario(organization_id, scenario)
+        await UserScenarioService._ensure_hook_email(token, created)
+        return created
 
     @staticmethod
     async def list_scenarios(token: str, scenario_id: UUID | None = None) -> ScenarioListResponse:
@@ -65,7 +68,10 @@ class UserScenarioService:
                 detail="At least one field must be provided to update the scenario.",
             )
 
-        return await UserScenariosInteractor.update_scenario(scenario.organization_id, scenario_id, scenario_update)
+        updated = await UserScenariosInteractor.update_scenario(scenario.organization_id, scenario_id, scenario_update)
+        if updated is not None:
+            await UserScenarioService._ensure_hook_email(token, updated)
+        return updated
 
     @staticmethod
     async def delete_scenario(token: str, scenario_id: UUID) -> StatusResponse:
@@ -99,6 +105,43 @@ class UserScenarioService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail="A hook email already exists for this scenario.",
             )
+        return await UserEmailsInteractor.create_hook_email(scenario_id, email_data)
+
+    @staticmethod
+    def _resolve_hook_defaults(scenario: Scenario) -> tuple[str, str]:
+        misc_info = scenario.misc_info or {}
+        sender_email = misc_info.get("sender_email") or misc_info.get("senderEmail") or "hook@phishward.com"
+        language = misc_info.get("language") or misc_info.get("lang") or "en"
+        return sender_email, language
+
+    @staticmethod
+    async def _ensure_hook_email(token: str, scenario: Scenario) -> None:
+        existing_email = await UserEmailsInteractor.get_hook_email(scenario.id)
+        if existing_email is not None:
+            return
+        try:
+            await UserScenarioService.generate_hook_email(token, scenario.id)
+        except HTTPException:
+            return
+        except Exception:
+            return
+
+    @staticmethod
+    async def generate_hook_email(token: str, scenario_id: UUID) -> Email:
+        scenario = await UserScenarioService._get_owned_scenario(token, scenario_id)
+        existing_email = await UserEmailsInteractor.get_hook_email(scenario_id)
+        if existing_email is not None:
+            return existing_email
+
+        drafted = AgenticServiceClient.generate_hook_email(token, scenario_id)
+        sender_email, language = UserScenarioService._resolve_hook_defaults(scenario)
+        email_data = HookEmailCreate(
+            subject=drafted.subject,
+            sender_email=sender_email,
+            language=language,
+            body=drafted.body,
+            variables=None,
+        )
         return await UserEmailsInteractor.create_hook_email(scenario_id, email_data)
 
     @staticmethod
