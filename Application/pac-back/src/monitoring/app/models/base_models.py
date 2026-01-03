@@ -126,3 +126,11 @@ class ExchangesCountResponse(BaseModel):
 
 class LastEmailStatusResponse(BaseModel):
     status: EmailStatus | None
+
+
+class ChallengeWorkflowResponse(BaseModel):
+    challenge: Challenge
+    workflow_state: ChallengeStatus
+    workflow_step: str
+    score: float | None = None
+    exchanges: list[Email]

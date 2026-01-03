@@ -5,6 +5,7 @@ from app.models.base_models import (
     ChallengeListResponse,
     ChallengeStatusResponse,
     ChallengeStatusUpdate,
+    ChallengeWorkflowResponse,
     ExchangesCountResponse,
     ExchangesResponse,
     LastEmailStatusResponse,
@@ -108,3 +109,11 @@ async def get_last_email_status(
 ) -> LastEmailStatusResponse:
     token = credentials.credentials
     return await MonitoringService.get_last_email_status(token, challenge_id)
+
+
+@router.get("/challenges/{challenge_id}", response_model=ChallengeWorkflowResponse)
+async def get_challenge_workflow(
+    challenge_id: UUID, credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> ChallengeWorkflowResponse:
+    token = credentials.credentials
+    return await MonitoringService.get_challenge_workflow(token, challenge_id)

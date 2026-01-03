@@ -290,6 +290,13 @@
                 </span>
               </button>
               <button
+                @click="openChallengeWorkflowModal(challenge)"
+                class="flex-1 sm:flex-none px-4 py-2 border border-phisward-secondary/40 text-phisward-primary rounded-lg font-semibold hover:bg-phisward-fourth/40 transition-all duration-200"
+              >
+                <i class="fas fa-project-diagram mr-2"></i>
+                Workflow
+              </button>
+              <button
                 @click="openChallengeStatusModal(challenge)"
                 class="flex-1 sm:flex-none px-4 py-2 bg-phisward-primary text-white rounded-lg font-semibold hover:bg-phisward-primary/90 transition-all duration-200"
               >
@@ -716,6 +723,14 @@
       @close="closeChallengeStatusModal"
       @updated="onChallengeUpdated"
     />
+
+    <ChallengeWorkflowModal
+      v-if="showWorkflowModal && workflowModalChallenge"
+      :challenge="workflowModalChallenge"
+      :employee-name="getMemberName(workflowModalChallenge.employee_id)"
+      :scenario-name="getScenarioName(workflowModalChallenge.scenario_id)"
+      @close="closeChallengeWorkflowModal"
+    />
   </DashboardLayout>
 </template>
 
@@ -727,6 +742,7 @@ import ScenarioFormModal from '@/components/dashboard/member/ScenarioFormModal.v
 import HookEmailModal from '@/components/dashboard/member/HookEmailModal.vue'
 import StartChallengeModal from '@/components/dashboard/member/StartChallengeModal.vue'
 import ChallengeStatusModal from '@/components/dashboard/member/ChallengeStatusModal.vue'
+import ChallengeWorkflowModal from '@/components/dashboard/member/ChallengeWorkflowModal.vue'
 
 defineProps({
   role: {
@@ -758,8 +774,10 @@ const pendingEmailsError = ref('')
 const sendingPending = ref(false)
 const showStartChallengeModal = ref(false)
 const showStatusModal = ref(false)
+const showWorkflowModal = ref(false)
 const startChallengeMember = ref(null)
 const statusModalChallenge = ref(null)
+const workflowModalChallenge = ref(null)
 const challengeExchangeCounts = ref({})
 const challengeEmailStatuses = ref({})
 
@@ -1732,6 +1750,21 @@ const openChallengeStatusModal = (challenge) => {
 const closeChallengeStatusModal = () => {
   showStatusModal.value = false
   statusModalChallenge.value = null
+}
+
+const openChallengeWorkflowModal = (challenge) => {
+  if (!challenge) {
+    return
+  }
+  challengesError.value = ''
+  challengesSuccess.value = ''
+  workflowModalChallenge.value = challenge
+  showWorkflowModal.value = true
+}
+
+const closeChallengeWorkflowModal = () => {
+  showWorkflowModal.value = false
+  workflowModalChallenge.value = null
 }
 
 const onChallengeUpdated = async (updatedChallenge, message) => {
