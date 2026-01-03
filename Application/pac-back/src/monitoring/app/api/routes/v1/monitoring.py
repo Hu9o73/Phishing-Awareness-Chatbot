@@ -13,11 +13,12 @@ from app.models.base_models import (
 )
 from app.models.enum_models import ChallengeStatus
 from app.services.Monitoring.monitoring import MonitoringService
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Header, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 router = APIRouter()
 security = HTTPBearer()
+optional_security = HTTPBearer(auto_error=False)
 
 
 @router.post("/start-challenge", response_model=Challenge, status_code=status.HTTP_201_CREATED)
@@ -92,15 +93,30 @@ async def get_pending_emails_count(
 
 
 @router.post("/send-all-pending", response_model=StatusResponse)
-async def send_all_pending_emails(credentials: HTTPAuthorizationCredentials = Depends(security)) -> StatusResponse:
-    token = credentials.credentials
-    return await MonitoringService.send_all_pending_emails(token)
+async def send_all_pending_emails(
+    credentials: HTTPAuthorizationCredentials | None = Depends(optional_security),
+    super_clock_token: str | None = Header(None, alias="X-Super-Clock-Token"),
+) -> StatusResponse:
+    token = credentials.credentials if credentials else None
+    return await MonitoringService.send_all_pending_emails(token, super_clock_token)
+
+
+@router.post("/send-all-pending-emails", response_model=StatusResponse)
+async def send_all_pending_emails_alias(
+    credentials: HTTPAuthorizationCredentials | None = Depends(optional_security),
+    super_clock_token: str | None = Header(None, alias="X-Super-Clock-Token"),
+) -> StatusResponse:
+    token = credentials.credentials if credentials else None
+    return await MonitoringService.send_all_pending_emails(token, super_clock_token)
 
 
 @router.get("/retrieve-answers", response_model=StatusResponse)
-async def retrieve_answers(credentials: HTTPAuthorizationCredentials = Depends(security)) -> StatusResponse:
-    token = credentials.credentials
-    return await MonitoringService.retrieve_answers(token)
+async def retrieve_answers(
+    credentials: HTTPAuthorizationCredentials | None = Depends(optional_security),
+    super_clock_token: str | None = Header(None, alias="X-Super-Clock-Token"),
+) -> StatusResponse:
+    token = credentials.credentials if credentials else None
+    return await MonitoringService.retrieve_answers(token, super_clock_token)
 
 
 @router.get("/challenge-last-email-status", response_model=LastEmailStatusResponse)

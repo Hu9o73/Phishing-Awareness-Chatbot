@@ -62,6 +62,14 @@ class MonitoringChallengesInteractor:
         return [Challenge(**entry) for entry in response.data]
 
     @staticmethod
+    async def list_challenges_for_employee(employee_id: UUID) -> list[Challenge]:
+        supabase: Client = get_db()
+        response = supabase.table("challenges").select("*").eq("employee_id", str(employee_id)).execute()
+        if not response.data:
+            return []
+        return [Challenge(**entry) for entry in response.data]
+
+    @staticmethod
     async def update_last_exchange_id(challenge_id: UUID, exchange_id: UUID) -> Challenge | None:
         supabase: Client = get_db()
         response = (

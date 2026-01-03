@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from uuid import UUID
 
 from app.database.interactors.Base.org_members import OrgMembersInteractor
+from app.database.interactors.Base.organizations import OrganizationsInteractor
 from app.database.interactors.Monitoring.challenges import MonitoringChallengesInteractor
 from app.database.interactors.Monitoring.exchanges import MonitoringExchangesInteractor
 from app.database.interactors.Monitoring.scenarios import MonitoringScenariosInteractor
@@ -34,6 +36,11 @@ from fastapi import HTTPException, status
 
 class MonitoringService:
     @staticmethod
+    def _is_super_clock_token(super_clock_token: str | None) -> bool:
+        expected = os.getenv("SUPER_CLOCK_TOKEN")
+        return bool(expected and super_clock_token == expected)
+
+    @staticmethod
     def _interpolate_hook_variables(text: str | None, first_name: str | None, last_name: str | None) -> str | None:
         if text is None:
             return None
@@ -50,6 +57,14 @@ class MonitoringService:
                 detail="User must belong to an organization to start a challenge.",
             )
         return user.organization_id
+
+    @staticmethod
+    async def _list_challenges_for_org(organization_id: UUID) -> list[Challenge]:
+        members = await OrgMembersInteractor.list_members_by_organization(organization_id)
+        challenges: list[Challenge] = []
+        for member in members:
+            challenges.extend(await MonitoringChallengesInteractor.list_challenges_for_employee(member.id))
+        return challenges
 
     @staticmethod
     async def _get_challenge_for_org(token: str, challenge_id: UUID) -> Challenge:
@@ -278,12 +293,10 @@ class MonitoringService:
         return ExchangesCountResponse(count=pending_count)
 
     @staticmethod
-    async def send_all_pending_emails(token: str) -> StatusResponse:
-        organization_id = MonitoringService._get_user_organization_id(token)
-        user = MonitoringService._get_current_member_user(token)
-        challenges = await MonitoringChallengesInteractor.list_challenges_for_user(user.id)
+    async def _send_pending_emails_for_challenges(
+        challenges: list[Challenge], organization_id: UUID
+    ) -> int:
         sent_count = 0
-
         for challenge in challenges:
             target_member = await OrgMembersInteractor.get_member(challenge.employee_id)
             if target_member is None or target_member.organization_id != organization_id:
@@ -315,13 +328,34 @@ class MonitoringService:
                 # Update status (and eventually challenge_id)
                 await MonitoringExchangesInteractor.update_email_send_info(email.id, UUID(challenge_id), EmailStatus.SENT)
                 sent_count += 1
+        return sent_count
 
+    @staticmethod
+    async def send_all_pending_emails(
+        token: str | None, super_clock_token: str | None = None
+    ) -> StatusResponse:
+        if MonitoringService._is_super_clock_token(super_clock_token):
+            organization_ids = await OrganizationsInteractor.list_organization_ids()
+            sent_count = 0
+            for organization_id in organization_ids:
+                challenges = await MonitoringService._list_challenges_for_org(organization_id)
+                sent_count += await MonitoringService._send_pending_emails_for_challenges(
+                    challenges, organization_id
+                )
+            return StatusResponse(status="ok", message=f"Sent {sent_count} pending emails.")
+
+        if token is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing credentials.")
+
+        organization_id = MonitoringService._get_user_organization_id(token)
+        user = MonitoringService._get_current_member_user(token)
+        challenges = await MonitoringChallengesInteractor.list_challenges_for_user(user.id)
+        sent_count = await MonitoringService._send_pending_emails_for_challenges(challenges, organization_id)
         return StatusResponse(status="ok", message=f"Sent {sent_count} pending emails.")
 
 
     @staticmethod
-    async def retrieve_answers(token: str) -> StatusResponse:
-        organization_id = MonitoringService._get_user_organization_id(token)
+    async def _retrieve_answers_for_org(organization_id: UUID) -> int:
         stored_count = 0
         after: str | None = None
         latest_received = await MonitoringExchangesInteractor.get_latest_received_email()
@@ -401,7 +435,9 @@ class MonitoringService:
 
                 created_email = await MonitoringExchangesInteractor.create_email_in_db(new_email)
                 if created_email.challenge_id is not None:
-                    await MonitoringChallengesInteractor.update_last_exchange_id(created_email.challenge_id, created_email.id)
+                    await MonitoringChallengesInteractor.update_last_exchange_id(
+                        created_email.challenge_id, created_email.id
+                    )
                 stored_count += 1
 
             if reached_known_email:
@@ -414,6 +450,24 @@ class MonitoringService:
                 break
             after = last_id
 
+        return stored_count
+
+    @staticmethod
+    async def retrieve_answers(
+        token: str | None, super_clock_token: str | None = None
+    ) -> StatusResponse:
+        if MonitoringService._is_super_clock_token(super_clock_token):
+            organization_ids = await OrganizationsInteractor.list_organization_ids()
+            stored_count = 0
+            for organization_id in organization_ids:
+                stored_count += await MonitoringService._retrieve_answers_for_org(organization_id)
+            return StatusResponse(status="ok", message=f"Found {stored_count} received emails.")
+
+        if token is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing credentials.")
+
+        organization_id = MonitoringService._get_user_organization_id(token)
+        stored_count = await MonitoringService._retrieve_answers_for_org(organization_id)
         return StatusResponse(status="ok", message=f"Found {stored_count} received emails.")
 
     @staticmethod

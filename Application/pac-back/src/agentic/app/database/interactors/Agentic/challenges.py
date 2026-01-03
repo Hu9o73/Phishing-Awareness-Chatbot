@@ -32,3 +32,11 @@ class AgenticChallengesInteractor:
         if not response.data:
             return None
         return Challenge(**response.data[0])
+
+    @staticmethod
+    async def list_challenges_by_status(status: ChallengeStatus) -> list[Challenge]:
+        supabase: Client = get_db()
+        response = supabase.table("challenges").select("*").eq("status", status.value).execute()
+        if not response.data:
+            return []
+        return [Challenge(**entry) for entry in response.data]
