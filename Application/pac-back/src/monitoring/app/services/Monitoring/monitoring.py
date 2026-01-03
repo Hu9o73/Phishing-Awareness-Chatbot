@@ -12,6 +12,7 @@ from app.models.base_models import (
     ChallengeListResponse,
     ChallengeStatusResponse,
     ChallengeStatusUpdate,
+    ChallengeWorkflowResponse,
     Email,
     EmailCreate,
     ExchangesCountResponse,
@@ -205,6 +206,52 @@ class MonitoringService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exchange not found.")
 
         return LastEmailStatusResponse(status=last_email.status)
+
+    @staticmethod
+    def _map_email_status_to_step(status: EmailStatus | None) -> str:
+        if status == EmailStatus.PENDING:
+            return "AI_ANSWER_READY"
+        if status == EmailStatus.SENT:
+            return "AI_EMAIL_SENT"
+        if status == EmailStatus.RECIEVED:
+            return "USER_ANSWERED"
+        return "AI_EMAIL_SENT"
+
+    @staticmethod
+    async def get_challenge_workflow(token: str, challenge_id: UUID) -> ChallengeWorkflowResponse:
+        challenge = await MonitoringService._get_challenge_for_org(token, challenge_id)
+        if challenge.channel != ChannelEnum.EMAIL:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unsupported channel for exchanges.",
+            )
+
+        if challenge.last_exchange_id is None:
+            exchanges: list[Email] = []
+            last_status: EmailStatus | None = None
+        else:
+            exchanges = []
+            current = await MonitoringExchangesInteractor.get_email(challenge.last_exchange_id)
+            if current is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exchange not found.")
+
+            while current is not None:
+                exchanges.append(current)
+                if current.role == EmailRole.HOOK or current.previous_email is None:
+                    break
+                current = await MonitoringExchangesInteractor.get_email(current.previous_email)
+
+            exchanges.reverse()
+            last_status = exchanges[-1].status if exchanges else None
+
+        workflow_step = MonitoringService._map_email_status_to_step(last_status)
+        return ChallengeWorkflowResponse(
+            challenge=challenge,
+            workflow_state=challenge.status,
+            workflow_step=workflow_step,
+            score=challenge.score,
+            exchanges=exchanges,
+        )
 
     @staticmethod
     async def get_pending_email_count_for_user(token: str, user_id: UUID) -> ExchangesCountResponse:
