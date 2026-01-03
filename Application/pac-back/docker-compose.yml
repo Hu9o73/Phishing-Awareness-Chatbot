@@ -75,3 +75,21 @@ services:
       interval: 10s
       timeout: 2s
       retries: 5
+  pac-clocking:
+    build:
+      context: "./src/clocking"
+    container_name: "pac-clocking"
+    ports:
+      - "8005:8005"
+    env_file:
+      - ./envs/.env
+    command: ["fastapi", "run", "./app/Clocking.py", "--port", "8005"]
+    networks:
+      - pac-network
+    depends_on:
+      - pac-monitoring
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 10s
+      timeout: 2s
+      retries: 5

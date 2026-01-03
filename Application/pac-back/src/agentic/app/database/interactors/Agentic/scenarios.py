@@ -20,3 +20,11 @@ class AgenticScenariosInteractor:
         if not response.data:
             return None
         return Scenario(**response.data[0])
+
+    @staticmethod
+    async def get_scenario_by_id(scenario_id: UUID) -> Scenario | None:
+        supabase: Client = get_db()
+        response = supabase.table("scenarios").select("*").eq("id", str(scenario_id)).limit(1).execute()
+        if not response.data:
+            return None
+        return Scenario(**response.data[0])

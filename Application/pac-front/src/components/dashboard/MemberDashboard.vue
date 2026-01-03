@@ -275,21 +275,6 @@
             </div>
             <div class="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
               <button
-                v-if="canGenerateAiResponse(challenge)"
-                @click="generateAiResponse(challenge.id)"
-                class="flex-1 sm:flex-none px-4 py-2 bg-gradient-to-r from-phisward-secondary to-phisward-third text-white rounded-lg font-semibold shadow hover:shadow-lg transition-all duration-200 disabled:opacity-50"
-                :disabled="generatingAiChallengeId === challenge.id"
-              >
-                <span v-if="generatingAiChallengeId !== challenge.id">
-                  <i class="fas fa-robot mr-2"></i>
-                  Generate AI Response
-                </span>
-                <span v-else>
-                  <i class="fas fa-spinner fa-spin mr-2"></i>
-                  Generating...
-                </span>
-              </button>
-              <button
                 @click="openChallengeWorkflowModal(challenge)"
                 class="flex-1 sm:flex-none px-4 py-2 border border-phisward-secondary/40 text-phisward-primary rounded-lg font-semibold hover:bg-phisward-fourth/40 transition-all duration-200"
               >
@@ -767,7 +752,6 @@ const challengesError = ref('')
 const challengesSuccess = ref('')
 const challengeStatusFilter = ref('ALL')
 const deletingChallengeId = ref('')
-const generatingAiChallengeId = ref('')
 const pendingEmailsCount = ref(0)
 const pendingEmailsLoading = ref(false)
 const pendingEmailsError = ref('')
@@ -1695,47 +1679,6 @@ const sendAllPendingEmails = async () => {
   }
 }
 
-const generateAiResponse = async (challengeId) => {
-  if (!challengeId) {
-    return
-  }
-
-  const challenge = challenges.value.find((item) => item.id === challengeId)
-  if (!canGenerateAiResponse(challenge)) {
-    challengesError.value = 'AI responses can only be generated for ongoing challenges.'
-    return
-  }
-
-  generatingAiChallengeId.value = challengeId
-  challengesError.value = ''
-  challengesSuccess.value = ''
-
-  try {
-    const token = localStorage.getItem('user_jwt_token')
-    if (!token) {
-      throw new Error('Authentication token is missing. Please log in again.')
-    }
-
-    const response = await fetch(`/api/agentic/email-agentic-flow?challenge_id=${challengeId}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
-
-    if (!response.ok) {
-      const message = await extractErrorMessage(response, 'Failed to generate AI response.')
-      throw new Error(message)
-    }
-
-    challengesSuccess.value = 'AI response generated successfully.'
-    await fetchChallenges()
-  } catch (error) {
-    challengesError.value = error.message || 'Failed to generate AI response.'
-  } finally {
-    generatingAiChallengeId.value = ''
-  }
-}
 
 const openChallengeStatusModal = (challenge) => {
   if (!challenge) {
@@ -1911,12 +1854,6 @@ const formatStatusLabel = (status) => {
   return status.charAt(0) + status.slice(1).toLowerCase()
 }
 
-const canGenerateAiResponse = (challenge) => {
-  if (!challenge) {
-    return false
-  }
-  return (challenge.status || '').toUpperCase() === 'ONGOING'
-}
 
 const formatEmailStatusLabel = (status) => {
   if (status === 'RECIEVED') {
