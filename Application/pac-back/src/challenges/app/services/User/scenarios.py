@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from app.database.client import get_db
 from app.database.interactors.User.emails import UserEmailsInteractor
 from app.database.interactors.User.scenarios import UserScenariosInteractor
 from app.models.base_models import (
@@ -76,6 +77,8 @@ class UserScenarioService:
     @staticmethod
     async def delete_scenario(token: str, scenario_id: UUID) -> StatusResponse:
         scenario = await UserScenarioService._get_owned_scenario(token, scenario_id)
+        supabase = get_db()
+        supabase.table("challenges").delete().eq("scenario_id", str(scenario_id)).execute()
         await UserEmailsInteractor.delete_all_for_scenario(scenario_id)
         await UserScenariosInteractor.delete_scenario(scenario.organization_id, scenario_id)
         return StatusResponse(status="ok", message=f"Scenario {scenario_id} deleted successfully.")
