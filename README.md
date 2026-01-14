@@ -1,29 +1,87 @@
+<img src="Application/pac-front/src/assets/logos/logo.png" alt="Phishing Awareness Chatbot Logo" width="300">
+
 # Phishing-Awareness-Chatbot
 
-An AI-powered application to enhance awareness regarding phishing
+An AI-powered platform that helps organizations run phishing-awareness campaigns with simulated scenarios, reporting, and monitoring.
 
+## What's in this repo
 
-## How to start the app ?
+- Frontend: Vue 3 + Vite app in `Application/pac-front`
+- Backend: FastAPI microservices in `Application/pac-back/src`
+- Docs: `Documentation/` (schema, roadmap, contribution guide)
 
-- Ensure you have docker (/ docker desktop on windows) installed on your computer.
-    - Please refer to https://www.docker.com/get-started/ for any help
-- Clone the repo using `git clone`
-- Create a `~/Application/pac-back/envs/.env` file according to `~/Application/pac-back/envs/.env.example` using your keys.
-- Create a `~/Application/pac-front/.env` file according to `~/Application/pac-front/.env.example` using your keys.
+## Tech stack
 
-### To start the backend only:
+- Frontend: Vue 3, Vite, Tailwind
+- Backend: FastAPI (Python), Docker
+- Data: Supabase (Postgres)
+- AI/Email integrations: OpenAI, Langfuse, Resend
 
-- Navigate to `./Application/pac-back`
-- Start the app using `docker compose up --build`, `--build` being optional, upon first up or upon changes.
-- Access the backend's interactive Swaggers at:
+## Architecture
 
-| Service Name   | Host      | Port | URL                   |
-|----------------|-----------|------|-----------------------|
-| Authentication | localhost | 8001 | http://localhost:8001 |
+Services and default ports (Docker):
 
+- Authentication API: `http://localhost:8001` (`/docs` for Swagger UI)
+- Challenges API: `http://localhost:8002` (`/docs` for Swagger UI)
+- Monitoring API: `http://localhost:8003` (`/docs` for Swagger UI)
+- Agentic API: `http://localhost:8004` (`/docs` for Swagger UI)
+- Clocking API: `http://localhost:8005` (`/docs` for Swagger UI)
+- Frontend (nginx + built assets): `http://localhost:8080`
 
-### To start the whole app:
+## Prerequisites
 
-- Navigate to `./Application/pac-back`
-- Start the app using `docker compose up --build`, `--build` being optional, upon first up or upon changes.
-- Access the app at `http://localhost:8080`
+- Docker + Docker Compose
+- Node.js 18+ (only if you want to run the frontend in dev mode)
+
+## Configuration
+
+Backend env file:
+
+1. Copy `Application/pac-back/envs/.env.example` to `Application/pac-back/envs/.env`.
+2. Fill in Supabase, OpenAI, Langfuse, Resend, and other keys.
+
+Frontend env file:
+
+1. Copy `Application/pac-front/.env.example` to `Application/pac-front/.env`.
+2. Set the `VITE_*` variables for local development.
+
+For tests, use `Application/pac-back/envs/.env.test.example` as a template for `Application/pac-back/envs/.env.test`.
+
+## Run the stack
+
+Full stack (backend + frontend build):
+
+```bash
+docker compose -f Application/docker-compose-full-build.yaml up --build
+```
+
+The full-stack compose uses nginx to expose backend APIs under `http://localhost:8080/api/*`
+and proxies to the services above (see `Application/pac-front/nginx.conf`).
+
+Backend only:
+
+```bash
+cd Application/pac-back
+docker compose up --build
+```
+
+Frontend dev server (optional, for local UI work):
+
+```bash
+cd Application/pac-front
+npm install
+npm run dev
+```
+
+## Tests
+
+Run backend unit tests in Docker:
+
+```bash
+docker compose -f Application/pac-back/local-backend-tests-docker-compose.yml up --build --abort-on-container-exit
+```
+
+## Documentation
+
+- Database schema: `Documentation/DATABASE_SCHEMA.md`
+- Contribution guide: `Documentation/CONTRIBUTION.md`
