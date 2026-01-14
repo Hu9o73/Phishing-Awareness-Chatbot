@@ -49,6 +49,7 @@ class HookEmailerAgent(AgentBase):
                     "Write as the phishing actor within the scenario, never as the platform user. "
                     "Return JSON with keys 'subject' and 'body'. "
                     "The 'body' must be a valid HTML string using simple tags like <p>, <br>, <ul>, <ol>, <strong>. "
+                    "Do not include links or URLs of any kind (no http/https, no www, no anchor tags). "
                     "You may include {{first_name}} and {{last_name}} placeholders for greeting only. "
                     "Do not include any other placeholders or variables. "
                     "Do not include markdown or code fences."

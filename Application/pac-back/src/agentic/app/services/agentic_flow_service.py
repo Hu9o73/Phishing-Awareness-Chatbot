@@ -1,7 +1,7 @@
 import os
 from uuid import UUID
 
-from app.agents.email_agentic_flow import DecidingAgent, EmailAnalysisAgent, EmailWriterAgent
+from app.agents.email_agentic_flow import DecidingAgent, EmailAnalysisAgent, EmailWriterAgent, TeacherAgent
 from app.database.interactors.Agentic.challenges import AgenticChallengesInteractor
 from app.database.interactors.Agentic.emails import AgenticEmailsInteractor
 from app.database.interactors.Agentic.scenarios import AgenticScenariosInteractor
@@ -173,10 +173,16 @@ class AgenticFlowService:
         decision_agent = DecidingAgent()
         decision_status, decision_score = await decision_agent.decide(analysis_resume)
 
-        writer_agent = EmailWriterAgent()
-        drafted_email = await writer_agent.craft_email(
-            decision_status, scenario, last_email, analysis_resume, exchanges or []
-        )
+        if decision_status == ChallengeStatus.ONGOING:
+            writer_agent = EmailWriterAgent()
+            drafted_email = await writer_agent.craft_email(
+                decision_status, scenario, last_email, analysis_resume, exchanges or []
+            )
+        else:
+            teacher_agent = TeacherAgent()
+            drafted_email = await teacher_agent.craft_learning_email(
+                decision_status, scenario, last_email, analysis_resume, exchanges or []
+            )
 
         subject = drafted_email.get("subject") or (previous_email.subject if previous_email else last_email.subject)
         body = drafted_email.get("body") or "Thank you for your response. Expect further instructions soon."

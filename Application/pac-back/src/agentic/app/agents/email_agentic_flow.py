@@ -160,8 +160,21 @@ class EmailWriterAgent(AgentBase):
                 )
             else:
                 body = "Let's keep going. Please review the situation and reply with your next action."
+        if status == ChallengeStatus.FAILURE:
+            body = EmailWriterAgent._sanitize_failure_body(body)
 
         return {"subject": subject, "body": EmailWriterAgent._ensure_html_body(body)}
+
+    @staticmethod
+    def _sanitize_failure_body(body: str) -> str:
+        lowered = (body or "").lower()
+        celebratory_terms = ("congrat", "great job", "well done", "nice job", "good job", "bravo", "felicit")
+        if any(term in lowered for term in celebratory_terms):
+            return (
+                "The simulation ended with a failure. We'll review the warning signs you missed and how to handle "
+                "similar situations next time."
+            )
+        return body
 
     @staticmethod
     def _ensure_html_body(body: str) -> str:
@@ -224,9 +237,9 @@ class EmailWriterAgent(AgentBase):
                     "the scenario seeks it). Do not include placeholder artifacts like [Your Name] or variables—write "
                     "complete, ready-to-send content. "
                     "Compose the next AI email with a clear subject and a concise body. "
-                    "If the participant passed, congratulate them and close the loop. "
-                    "If they failed, explain the phishing outcome and learning points. "
-                    "If the challenge is ongoing, continue the scenario naturally and guide their next move. "
+                    "Continue the scenario naturally and guide their next move. "
+                    "If the decision status is FAILURE, do not congratulate or praise the participant. "
+                    "Return a neutral, supportive message focused on what comes next. "
                     "Always return JSON with keys 'subject' and 'body', where 'body' is HTML with simple structure "
                     "(use <p>, <ul>, <ol>, <strong> as needed) and contains no markdown."
                 )
@@ -246,5 +259,102 @@ class EmailWriterAgent(AgentBase):
 
         llm_response = await self._llm_call_with_tools(llm, messages)
         langfuse_context.update_current_observation(name="Agent: Email Writer")
+        content = llm_response if isinstance(llm_response, str) else llm_response.content
+        return self._parse_email_response(content, status)
+
+
+class TeacherAgent(AgentBase):
+    def _get_available_tools(self) -> list[callable]:
+        return []
+
+    @staticmethod
+    def _fallback_subject(status: ChallengeStatus) -> str:
+        if status == ChallengeStatus.SUCCESS:
+            return "Training results and lessons"
+        return "Training results and next steps"
+
+    @staticmethod
+    def _parse_email_response(content: str, status: ChallengeStatus) -> dict[str, str]:
+        cleaned = content.strip()
+        if "```" in cleaned:
+            parts = cleaned.split("```")
+            if len(parts) >= 2:
+                cleaned = parts[1]
+
+        subject: str | None = None
+        body: str | None = None
+
+        try:
+            parsed = json.loads(cleaned)
+            subject = parsed.get("subject") or parsed.get("title")
+            body = parsed.get("body") or parsed.get("message")
+        except json.JSONDecodeError:
+            body = cleaned
+
+        subject = subject or TeacherAgent._fallback_subject(status)
+        body = (body or "").strip()
+        if not body:
+            if status == ChallengeStatus.SUCCESS:
+                body = (
+                    "Congratulations on successfully navigating the phishing simulation. We'll review the key signals "
+                    "you recognized and how to repeat that behavior in real inboxes."
+                )
+            else:
+                body = (
+                    "The phishing simulation concluded with a failure. We'll break down where it went wrong and how "
+                    "to spot the same risks next time."
+                )
+        if status == ChallengeStatus.FAILURE:
+            body = EmailWriterAgent._sanitize_failure_body(body)
+
+        return {"subject": subject, "body": EmailWriterAgent._ensure_html_body(body)}
+
+    @observe(as_type="generation")
+    async def craft_learning_email(
+        self,
+        status: ChallengeStatus,
+        scenario: Scenario,
+        last_email: Email,
+        analysis_resume: str,
+        exchanges: list[Email],
+    ) -> dict[str, str]:
+        llm = await self._create_openai_llm()
+        history = EmailWriterAgent._format_writer_history(exchanges)
+        messages = [
+            SystemMessage(
+                content=(
+                    "You are the teacher agent for a phishing awareness challenge."
+                    "Your job is to send the final learning email after the challenge ends (success or failure)."
+                    "The email you send depends on the decision status of the challenge"
+                    "If the decision status is FAILURE, explicitly state that the participant failed the scenario and "
+                    "avoid any congratulatory or praise language. Explain the user why they failed "
+                    "If the decision status is SUCCESS, congratulate the user."
+                    "Use an educational, supportive tone. Explain why the participant succeeded or failed based on "
+                    "their actions and choices, referencing concrete behaviors from the analysis resume and email "
+                    "history. Provide practical takeaways and safer alternatives. Do not continue the phishing "
+                    "scenario and do not ask for more sensitive information. "
+                    "Write as the training platform coach, not as the participant and not as the phishing actor. "
+                    "Return JSON with keys 'subject' and 'body', where 'body' is HTML with simple structure "
+                    "(use <p>, <ul>, <ol>, <strong> as needed) and contains no markdown."
+                    f"Current decision status is {status}"
+                )
+            ),
+            HumanMessage(
+                content=(
+                    f"Decision status: {status}\n"
+                    f"Scenario name: {scenario.name} (complexity={scenario.complexity})\n"
+                    f"Scenario objective:\n{scenario.system_prompt}\n"
+                    f"Scenario misc info:\n{scenario.misc_info}\n"
+                    f"Analysis resume:\n{analysis_resume}\n"
+                    "Full email history (YOU = hook/AI messages, USER = participant messages, chronological):\n"
+                    f"{history}\n"
+                    f"Latest user email subject={last_email.subject}\n"
+                    f"Latest user email body:\n{last_email.body}"
+                )
+            ),
+        ]
+
+        llm_response = await self._llm_call_with_tools(llm, messages)
+        langfuse_context.update_current_observation(name="Agent: Teacher")
         content = llm_response if isinstance(llm_response, str) else llm_response.content
         return self._parse_email_response(content, status)
