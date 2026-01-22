@@ -248,7 +248,6 @@ class AgenticFlowService:
         )
 
     @staticmethod
-    @observe(as_type="trace")
     async def run_email_flow_for_super_token(challenge_id: UUID) -> AgenticFlowResponse:
         challenge, scenario, last_email, previous_email = await AgenticFlowService._get_challenge_context_super(
             challenge_id
